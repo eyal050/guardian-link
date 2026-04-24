@@ -77,3 +77,15 @@ resource "azurerm_monitor_diagnostic_setting" "eventhub_namespace" {
     enabled  = true
   }
 }
+
+# Consumer group for the local inspector consumer in apps/consumer/.
+# Kept separate from any future telemetry-writer Function's group so
+# multiple consumers can run without partition-ownership conflicts.
+resource "azurerm_eventhub_consumer_group" "inspector" {
+  provider = azurerm.workload
+
+  name                = "inspector"
+  namespace_name      = azurerm_eventhub_namespace.main.name
+  eventhub_name       = azurerm_eventhub.telemetry.name
+  resource_group_name = azurerm_resource_group.main.name
+}
