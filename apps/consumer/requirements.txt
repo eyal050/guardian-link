@@ -1,0 +1,8 @@
+azure-eventhub>=5.12
+azure-identity>=1.19
+azure-monitor-opentelemetry>=1.6
+python-dotenv>=1.0
+
+# Required by azure.identity.aio.DefaultAzureCredential's HTTP transport;
+# azure-identity does not pull it in automatically.
+aiohttp>=3.9
