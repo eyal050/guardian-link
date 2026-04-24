@@ -22,4 +22,11 @@ terraform init \
   -backend-config="container_name=${BACKEND_CONTAINER_NAME}" \
   -backend-config="key=${BACKEND_KEY}"
 
+# Refresh Azure CLI's cached subscription list so the aliased
+# azurerm.workload provider can authenticate against the child sub.
+# Without this, the first apply that creates the subscription leaves
+# the CLI cache stale and the next TF step errors with
+# "subscription ID ... is not known by Azure CLI".
+az account list --refresh >/dev/null
+
 terraform "$@"
