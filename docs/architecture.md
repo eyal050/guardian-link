@@ -1,0 +1,158 @@
+# GuardianLink Architecture
+
+## The product, in one paragraph
+
+A user wears a BLE device (or runs a mobile app) that continuously samples accelerometer, GPS, battery, and heart-rate data. Telemetry is streamed to Azure. Most of it is just stored for analytics. When the onboard firmware *suspects* a crash, it flags the event; a cloud-side ML model confirms or rejects. On confirmed crashes, the platform notifies the user's emergency contacts over multiple channels within seconds.
+
+## High-level diagram
+
+```
+ ┌────────────────────┐      ┌────────────────────┐
+ │ BLE device / phone │─────▶│ Mobile app gateway │
+ └────────────────────┘      └──────────┬─────────┘
+                                        │ MQTT/HTTPS
+                                        ▼
+                              ┌────────────────────┐
+                              │    Azure IoT Hub   │
+                              └──────────┬─────────┘
+                                         │
+                                         ▼
+                              ┌────────────────────┐
+                              │    Event Grid /    │
+                              │   Event Hubs (?)   │  ← open decision
+                              └──────────┬─────────┘
+                         ┌───────────────┼───────────────┐
+                         ▼               ▼               ▼
+                 ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+                 │ Telemetry   │  │ Crash       │  │ Metrics     │
+                 │ writer (Fn) │  │ classifier  │  │ function    │
+                 └──────┬──────┘  │   (Fn)      │  └──────┬──────┘
+                        │         └──────┬──────┘         │
+          ┌─────────────┴──┐             │                │
+          ▼                ▼             ▼                ▼
+  ┌──────────────┐  ┌────────────┐  ┌─────────────┐  ┌──────────────┐
+  │  Cosmos DB   │  │ Blob (raw  │  │ ML endpoint │  │ App Insights │
+  │  (hot store) │  │  telemetry)│  │ (Container  │  │              │
+  └──────────────┘  └────────────┘  │  App stub)  │  └──────────────┘
+                                    └──────┬──────┘
+                                           │ if crash confirmed
+                                           ▼
+                                    ┌────────────┐
+                                    │ Notifier   │
+                                    │   (Fn)     │
+                                    └──┬──┬──┬───┘
+                          ┌────────────┘  │  └──────────────┐
+                          ▼               ▼                 ▼
+                      ┌───────┐      ┌─────────┐      ┌─────────────┐
+                      │ Azure │      │ SendGrid│      │ Notification│
+                      │ Comms │      │         │      │ Hubs (push) │
+                      │ (SMS) │      │ (email) │      │             │
+                      └───────┘      └─────────┘      └─────────────┘
+
+ ┌─────────────────┐          ┌──────────────────┐        ┌──────────────┐
+ │   API Mgmt      │─────────▶│ user-api (Fn or  │───────▶│  PostgreSQL  │
+ │   (public)      │          │ Container App)   │        │  Flexible    │
+ └─────────────────┘          └──────────────────┘        └──────────────┘
+
+ Cross-cutting:
+   • Key Vault  ← all secrets, connection strings, certs
+   • Log Analytics workspace  ← all logs land here
+   • Managed Identities everywhere possible (no connection-string auth between services)
+   • Private endpoints for data stores (dev may skip this for cost)
+```
+
+## Components and responsibilities
+
+### Ingestion layer
+
+**Azure IoT Hub**
+- Terminates device connections (MQTT over TLS).
+- Device identity and per-device auth (X.509 preferred, SAS for the simulator).
+- Routes messages to the eventing backbone based on message properties (e.g., `eventType=crash_suspect` routes differently than `eventType=telemetry`).
+- Shared-access policies locked down; only the simulator gets `device` scope.
+
+**Why IoT Hub and not Event Hubs directly?** Device identity and bidirectional comms (cloud-to-device, twin state). For a product with remote devices, IoT Hub's device registry matters more than raw throughput.
+
+### Eventing backbone
+
+**Open decision** — see `brainstorming-topics.md` #3.
+
+- **Event Grid** → pub/sub, push-based, great for reactive Functions, cheaper at low volume.
+- **Event Hubs** → high-throughput, pull-based, better for analytics pipelines and replay.
+- **Service Bus** → transactional semantics, dead-letter queues, ordering.
+
+The crash notification path probably wants **at-least-once with dead-letter** (Service Bus), the telemetry path wants **high-throughput streaming** (Event Hubs), and some low-volume lifecycle events fit **Event Grid**. Multiple backbones are common in production but add operational surface. Discuss tradeoff.
+
+### Processing layer (Azure Functions or Container Apps)
+
+- **Telemetry writer** — writes hot telemetry to Cosmos DB, raw batches to Blob (Parquet). Stateless, scales on queue depth.
+- **Crash classifier** — receives crash-suspect events, pulls the relevant telemetry window, calls ML endpoint, publishes `crash_confirmed` or `crash_rejected`.
+- **Notifier** — consumes `crash_confirmed`, looks up emergency contacts from PostgreSQL, fans out to SMS/email/push. Must be idempotent (see failure #1).
+- **Metrics function** — consumes all events, emits custom App Insights metrics (events/sec, classifier latency, notification latency).
+
+### Storage layer
+
+**Cosmos DB** — hot store for recent telemetry, user-facing queries, event lookups.
+- Partition key: open decision. `deviceId` is obvious; `deviceId + yyyyMM` handles hot partitions better.
+- TTL on telemetry documents (e.g., 30 days in hot store).
+- Throughput: autoscale in dev, dedicated in prod.
+
+**Blob Storage** — cold/raw telemetry archive, crash event payloads, ML training data.
+- Lifecycle policy: hot → cool after 30d → archive after 180d.
+- Immutable blob policy for crash events (regulatory evidence).
+
+**PostgreSQL Flexible Server** — users, emergency contacts, device registry, consent records.
+- Why Postgres and not Cosmos for this? Relational data with strong consistency needs (a missed emergency contact is a safety issue, not a latency issue). Plus the JD explicitly names Postgres.
+
+### API layer
+
+**API Management** — public edge for the mobile app.
+- Products/subscriptions model for mobile app key.
+- Rate limiting per user.
+- JWT validation (Entra ID or custom B2C).
+- Request/response logging to App Insights.
+
+**user-api** — CRUD for user profile, emergency contacts, device pairing, consent.
+- Azure Function with HTTP triggers OR Container App. Open decision.
+
+### ML support (stub, not real MLOps)
+
+- A dummy Python container hosted on Azure Container Apps that accepts a telemetry window and returns `{"is_crash": bool, "confidence": float}`.
+- Version the container image. Deploy v1 and v2 side-by-side behind a traffic split.
+- That's enough to talk about blue/green deploys, canary, and model versioning without over-investing.
+
+### Observability
+
+- **Log Analytics workspace** — single workspace for dev, logs from every service.
+- **Application Insights** — connected to the workspace. Instrument every function. Custom events for business metrics (`crash_confirmed`, `notification_sent`, `notification_failed`).
+- **Dashboards** — at least one Azure Workbook with: ingestion rate, classifier latency p50/p95/p99, notification success rate, Cosmos RU consumption, cost-to-date.
+- **Alerts** — at least five, wired to an action group. Examples: notification failure rate > 1%, Cosmos 429s > threshold, classifier latency p95 > 2s, Function execution errors > N/min, Key Vault access denied.
+
+### Security & identity
+
+- **Managed identities** everywhere. No connection strings in config for service-to-service auth.
+- **Key Vault** for the secrets that unavoidably exist (SendGrid API key, ACS connection string, JWT signing keys).
+- **RBAC** on Key Vault, Cosmos, Storage, Postgres — principle of least privilege.
+- **Private endpoints** on data stores in prod. In dev, public with firewall rules is fine and cheaper.
+- **Entra ID** for operator access to the subscription.
+
+### CI/CD
+
+- **Azure DevOps** pipelines (not GitHub Actions — the JD is specific).
+- Separate pipelines: `infra` (terraform), `apps` (function/container builds).
+- Infra pipeline stages: `validate → plan → (manual approval) → apply`.
+- App pipeline: `build → test → deploy-dev → (approval) → deploy-prod`.
+- Release annotations in App Insights so deploys show up on graphs.
+
+## Decisions already made (do not re-litigate)
+
+1. Terraform for IaC, not Bicep.
+2. Azure Functions are the default compute; escalate to Container Apps only where justified.
+3. Python for Functions (aligns with the ML stub and simulator).
+4. One Log Analytics workspace, not per-service.
+5. Cosmos DB Core (SQL) API. Not Mongo, not Cassandra.
+6. Single region for the exercise. Multi-region is a discussion, not a build.
+
+## Decisions deliberately left open
+
+See `brainstorming-topics.md`. Do not let Claude Code silently decide these. Make the call yourself and write it down.
