@@ -152,6 +152,11 @@ The crash notification path probably wants **at-least-once with dead-letter** (S
 4. One Log Analytics workspace, not per-service.
 5. Cosmos DB Core (SQL) API. Not Mongo, not Cassandra.
 6. Single region for the exercise. Multi-region is a discussion, not a build.
+7. **Eventing backbone is split three ways.**
+   - **Event Hubs** for device telemetry — high volume, partitioned by `deviceId`, consumer-group model, replayable so the classifier can be re-run against historical windows.
+   - **Service Bus** for the crash notification pipeline — at-least-once + DLQ required because crash events cannot be dropped; the notifier is idempotent to tolerate redelivery (see failure #1).
+   - **Event Grid** for lifecycle and platform events — device paired, user created, plus Azure system events (e.g., blob-created). Chosen over folding into Service Bus because (a) platform system-topics are Event Grid-native, (b) consumers are small reactive Functions where push beats pull, (c) pay-per-event floor is lower at dev-env volumes.
+   - **Routing rule:** IoT Hub routes all device messages to Event Hubs only. The classifier Function publishes `crash_confirmed` to Service Bus downstream. The "this is life-safety" boundary sits at the classifier's confidence threshold, not at ingest — so low-confidence suspects never enter the hardened queue.
 
 ## Decisions deliberately left open
 
