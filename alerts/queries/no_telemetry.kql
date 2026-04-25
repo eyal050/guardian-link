@@ -1,0 +1,3 @@
+traces
+| where message == "message_sent"
+| summarize sent = count()
