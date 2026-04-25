@@ -30,7 +30,8 @@ registry).
 
 ```bash
 source .venv/bin/activate
-python simulator.py
+python simulator.py --device sim-01   # terminal 1
+python simulator.py --device sim-02   # terminal 2
 # Ctrl-C to stop; disconnects cleanly.
 ```
 
