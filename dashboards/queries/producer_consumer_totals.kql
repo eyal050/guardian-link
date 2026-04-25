@@ -1,0 +1,4 @@
+traces
+| where timestamp {TimeRange}
+| where message in ("message_sent", "message_received")
+| summarize count() by message

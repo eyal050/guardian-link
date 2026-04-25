@@ -1,0 +1,4 @@
+traces
+| where timestamp {TimeRange}
+| where message == "message_sent"
+| summarize count() by tostring(customDimensions.event_type)
