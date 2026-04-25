@@ -1,0 +1,12 @@
+[
+  {
+    "id": "sim-01",
+    "telemetry_period_s": 20,
+    "crash_period_s": 120
+  },
+  {
+    "id": "sim-02",
+    "telemetry_period_s": 27,
+    "crash_period_s": 95
+  }
+]

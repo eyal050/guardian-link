@@ -4,12 +4,14 @@ until Ctrl-C. Instruments sends as log records in App Insights `traces`.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import logging
 import os
 import signal
 from datetime import datetime, timezone
+from pathlib import Path
 
 from azure.iot.device import Message
 from azure.iot.device.aio import IoTHubDeviceClient
@@ -22,8 +24,23 @@ from payload import build_crash_suspect, build_telemetry
 log = logging.getLogger("simulator")
 
 
-def _configure() -> dict:
-    load_dotenv()
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="GuardianLink device simulator (one process per device)")
+    parser.add_argument(
+        "--device",
+        required=True,
+        help="device id (must match an entry in devices.json); loads .env.<id>",
+    )
+    return parser.parse_args()
+
+
+def _configure(device_id: str) -> dict:
+    env_path = Path(__file__).parent / f".env.{device_id}"
+    if not env_path.exists():
+        raise SystemExit(
+            f"missing {env_path}. add '{device_id}' to devices.json and run bootstrap.py."
+        )
+    load_dotenv(env_path)
     required = [
         "IOTHUB_DEVICE_CONNECTION_STRING",
         "APPLICATIONINSIGHTS_CONNECTION_STRING",
@@ -31,7 +48,12 @@ def _configure() -> dict:
     ]
     missing = [k for k in required if not os.environ.get(k)]
     if missing:
-        raise SystemExit(f"missing env vars: {missing}. run bootstrap.py first.")
+        raise SystemExit(f"missing env vars in {env_path}: {missing}. re-run bootstrap.py.")
+    if os.environ["DEVICE_ID"] != device_id:
+        raise SystemExit(
+            f"DEVICE_ID mismatch: --device={device_id} but {env_path} has "
+            f"DEVICE_ID={os.environ['DEVICE_ID']}. re-run bootstrap.py."
+        )
     # basicConfig MUST run before configure_azure_monitor: the OTel distro
     # attaches its own handler to the root logger, after which basicConfig
     # becomes a no-op and nothing reaches stderr.
@@ -83,8 +105,8 @@ async def _send_loop(
         await asyncio.sleep(period_s)
 
 
-async def _run() -> None:
-    cfg = _configure()
+async def _run(device_id: str) -> None:
+    cfg = _configure(device_id)
     client = IoTHubDeviceClient.create_from_connection_string(cfg["conn_str"])
 
     await client.connect()
@@ -117,7 +139,8 @@ async def _run() -> None:
 
 
 def main() -> None:
-    asyncio.run(_run())
+    args = _parse_args()
+    asyncio.run(_run(args.device))
 
 
 if __name__ == "__main__":

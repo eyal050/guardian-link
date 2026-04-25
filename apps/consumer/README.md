@@ -5,7 +5,11 @@ via the `inspector` consumer group using Entra ID auth, formats each
 message to stdout, and logs to App Insights.
 
 This is a demo-focused observer, not the production telemetry-writer.
-It does not checkpoint and does not write messages anywhere.
+It does not write messages anywhere besides stdout + App Insights.
+
+It checkpoints partition offsets to a Blob container so multiple
+instances in the same consumer group cooperate on partition ownership
+(load balance) instead of each draining all partitions independently.
 
 ## Prerequisites
 
@@ -25,27 +29,23 @@ python -m venv .venv && source .venv/bin/activate
 #   pip install --user virtualenv && virtualenv .venv
 pip install -r requirements-dev.txt
 python -m pytest                  # should pass before running anything live
-python bootstrap.py               # grants Data Receiver role, writes .env
+python bootstrap.py               # grants Data Receiver + Blob Data Contributor, writes .env
 ```
 
 After a fresh role grant, Azure RBAC may take 30-60s to propagate. If
-the first `consumer.py` run 403s, wait a minute and retry.
+the first `consumer.py` run 403s on Event Hub or Blob, wait a minute
+and retry.
 
 ## Running
 
 ```bash
-# terminal 1
-source .venv/bin/activate
-python consumer.py
-
-# terminal 2 (separate window/tab)
 source .venv/bin/activate
 python consumer.py
 # Ctrl-C to stop; closes the client cleanly.
 ```
 
-Run the simulator (`apps/simulator/python simulator.py`) in a second
-terminal. Messages from the simulator land in the consumer's stdout.
+Run the simulator (`apps/simulator/python simulator.py --device sim-01`) in a
+second terminal. Messages from the simulator land in the consumer's stdout.
 
 ## Configuration
 
@@ -66,3 +66,15 @@ With simulator + consumer running:
      | summarize count() by tostring(customDimensions.event_type)
    ```
    Counts mirror the simulator's `message_sent` rows (with small delay).
+3. Checkpoint blobs appear under
+   `<storage-account>/eh-checkpoints/<eh-fqdn>/telemetry/inspector/checkpoint/<partition>`.
+   Quick check: `az storage blob list --account-name <st> -c eh-checkpoints --auth-mode login -o table`.
+
+## Load-balanced run (two consumers)
+
+Start two `python consumer.py` processes in separate terminals against
+the same `.env`. The SDK's load balancer (backed by the checkpoint
+container) splits the 4 partitions roughly 2/2 between them. Each
+event prints in exactly one consumer's stdout, not both. Killing one
+process triggers a rebalance: the survivor picks up the orphaned
+partitions within ~30s.
