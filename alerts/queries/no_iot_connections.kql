@@ -1,0 +1,5 @@
+AzureDiagnostics
+| where ResourceType == "IOTHUBS"
+| where Category == "Connections"
+| where ResultType == "Success"
+| summarize connects = count()
