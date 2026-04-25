@@ -78,3 +78,11 @@ container) splits the 4 partitions roughly 2/2 between them. Each
 event prints in exactly one consumer's stdout, not both. Killing one
 process triggers a rebalance: the survivor picks up the orphaned
 partitions within ~30s.
+
+To tell the two processes apart in App Insights — both default
+`cloud_RoleInstance` to the shared hostname — launch each with a
+distinct OTel resource attribute, e.g.
+`OTEL_RESOURCE_ATTRIBUTES="service.instance.id=consumer-A" python consumer.py`
+(and `consumer-B` for the other). Then `traces | summarize count() by
+cloud_RoleInstance, tostring(customDimensions.partition_id)` shows
+partition ownership per process.
