@@ -34,6 +34,7 @@ the first `consumer.py` run 403s, wait a minute and retry.
 ## Running
 
 ```bash
+source .venv/bin/activate
 python consumer.py
 # Ctrl-C to stop; closes the client cleanly.
 ```

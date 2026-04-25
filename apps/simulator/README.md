@@ -29,6 +29,7 @@ registry).
 ## Running
 
 ```bash
+source .venv/bin/activate
 python simulator.py
 # Ctrl-C to stop; disconnects cleanly.
 ```
