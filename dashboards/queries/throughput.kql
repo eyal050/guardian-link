@@ -1,0 +1,5 @@
+traces
+| where timestamp {TimeRange}
+| where message in ("message_sent", "message_received")
+| summarize count() by bin(timestamp, 1m), message
+| render timechart

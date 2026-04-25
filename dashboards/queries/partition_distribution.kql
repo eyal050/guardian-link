@@ -1,0 +1,5 @@
+traces
+| where timestamp {TimeRange}
+| where message == "message_received"
+| summarize count() by tostring(customDimensions.partition_id)
+| order by tostring(customDimensions.partition_id) asc
