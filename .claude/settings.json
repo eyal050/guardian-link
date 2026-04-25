@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "c=$(git status --short 2>/dev/null); [ -n \"$c\" ] && echo \"$c\" | python3 -c 'import json,sys; print(json.dumps({\"systemMessage\":\"Uncommitted changes:\\n\"+sys.stdin.read()+\"\\n\\u2192 If this was a working slice (tests pass, verified): commit + push to main per CLAUDE.md \\u00a76.\"}))'"
+          }
+        ]
+      }
+    ]
+  }
+}

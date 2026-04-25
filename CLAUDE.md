@@ -17,6 +17,8 @@ You are helping the user prepare for a technical interview by building a realist
 
 5. **Fail loudly on missing context.** If the user asks you to work on a component that isn't specified in `docs/architecture.md`, stop and ask where it fits. Do not invent components.
 
+6. **Commit + push after every working slice.** A "working slice" means: the change builds, tests pass, and the behavior has been verified (terraform plan/apply succeeded, function ran, etc.). After each such slice — without waiting to be asked — stage the relevant files explicitly (never `git add -A`, to keep `.failure-state/` and other untracked junk out), commit with a message that explains the *why*, and `git push` to `main`. Do **not** commit/push for: WIP, failed tests, mid-refactor states, or anything you haven't verified. If you're unsure whether the slice is "working," ask the user before committing. A `Stop` hook will remind you when uncommitted changes exist; treat that reminder as a prompt to either commit (if verified) or explicitly defer.
+
 ## The failure-injection game
 
 See `docs/failure-scenarios.md` for the full protocol. Short version:
