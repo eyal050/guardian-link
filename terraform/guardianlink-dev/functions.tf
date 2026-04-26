@@ -97,6 +97,15 @@ resource "azurerm_linux_function_app" "telemetry_writer" {
     # explicitly — without it the host returns zero discovered functions
     # even when function_app.py loads cleanly.
     "AzureWebJobsFeatureFlags" = "EnableWorkerIndexing"
+
+    # Cosmos coordinates for the writer. Endpoint is non-secret;
+    # auth is identity-based via DefaultAzureCredential resolving
+    # the Function App's system-assigned MI (cosmos.tf has
+    # local_authentication_disabled=true, so connection-string auth
+    # would fail at the data plane).
+    "COSMOS_ENDPOINT"  = azurerm_cosmosdb_account.main.endpoint
+    "COSMOS_DATABASE"  = azurerm_cosmosdb_sql_database.main.name
+    "COSMOS_CONTAINER" = azurerm_cosmosdb_sql_container.telemetry.name
   }
 
   # WEBSITE_RUN_FROM_PACKAGE is set by `az functionapp deployment source
@@ -123,6 +132,32 @@ resource "azurerm_role_assignment" "func_to_eh_receiver" {
   scope                = azurerm_eventhub.telemetry.id
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = azurerm_linux_function_app.telemetry_writer.identity[0].principal_id
+}
+
+# Cosmos data-plane RBAC. The 'Cosmos DB Built-in Data Contributor' role
+# (well-known role definition id ...000002) grants read + write on data;
+# the Cosmos control plane (account/database/container CRUD) is a
+# separate Azure RBAC surface that we don't grant the Function. Account-
+# level scope is fine here — the writer needs to write to one container
+# today and may add others (raw events, crash events) without an RBAC
+# round-trip. Narrow to /dbs/<db>/colls/<coll> if least-privilege grows
+# important.
+#
+# A random_uuid for the assignment 'name' so plans are stable across
+# applies; Cosmos requires the assignment ID to be a UUID (it's not the
+# role being assigned, that's role_definition_id).
+resource "random_uuid" "cosmos_writer_role_assignment" {}
+
+resource "azurerm_cosmosdb_sql_role_assignment" "func_to_cosmos_writer" {
+  provider = azurerm.workload
+
+  resource_group_name = azurerm_resource_group.main.name
+  account_name        = azurerm_cosmosdb_account.main.name
+  name                = random_uuid.cosmos_writer_role_assignment.result
+
+  role_definition_id = "${azurerm_cosmosdb_account.main.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
+  principal_id       = azurerm_linux_function_app.telemetry_writer.identity[0].principal_id
+  scope              = azurerm_cosmosdb_account.main.id
 }
 
 # Route Function App platform logs + metrics to LAW so trigger errors,

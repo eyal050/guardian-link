@@ -21,6 +21,7 @@ venv/
 .ruff_cache/
 .coverage
 htmlcov/
+.python_packages/
 
 # Editors / OS
 .vscode/
