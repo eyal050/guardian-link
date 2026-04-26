@@ -73,11 +73,14 @@ resource "azurerm_linux_function_app" "telemetry_writer" {
     application_stack {
       python_version = "3.10"
     }
+
+    # AI conn string set via site_config (not app_settings) — the
+    # provider normalizes here on read, so anchoring TF to the same
+    # location avoids a perpetual diff.
+    application_insights_connection_string = azurerm_application_insights.main.connection_string
   }
 
   app_settings = {
-    "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.main.connection_string
-
     # Identity-based connection for the EH trigger. The runtime reads
     # both __fullyQualifiedNamespace (where) and __credential (how).
     "EH_TELEMETRY__fullyQualifiedNamespace" = "${azurerm_eventhub_namespace.main.name}.servicebus.windows.net"
@@ -94,6 +97,17 @@ resource "azurerm_linux_function_app" "telemetry_writer" {
     # explicitly — without it the host returns zero discovered functions
     # even when function_app.py loads cleanly.
     "AzureWebJobsFeatureFlags" = "EnableWorkerIndexing"
+  }
+
+  # WEBSITE_RUN_FROM_PACKAGE is set by `az functionapp deployment source
+  # config-zip` (uploads the zip to blob, writes the SAS URL here). It
+  # changes on every deploy so TF must not manage it — without this
+  # ignore, `terraform apply` would strip the URL and unload the
+  # function.
+  lifecycle {
+    ignore_changes = [
+      app_settings["WEBSITE_RUN_FROM_PACKAGE"],
+    ]
   }
 
   tags = local.tags
