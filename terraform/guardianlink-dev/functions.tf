@@ -106,6 +106,15 @@ resource "azurerm_linux_function_app" "telemetry_writer" {
     "COSMOS_ENDPOINT"  = azurerm_cosmosdb_account.main.endpoint
     "COSMOS_DATABASE"  = azurerm_cosmosdb_sql_database.main.name
     "COSMOS_CONTAINER" = azurerm_cosmosdb_sql_container.telemetry.name
+
+    # Raw-archive Blob target for slice β. Identity-based:
+    # DefaultAzureCredential resolves the Function App's MI and the
+    # 'Storage Blob Data Contributor' assignment on the archive
+    # account (`func_to_blob_archive` below) authorizes the writes.
+    # ACCOUNT is the full primary_blob_endpoint URL (the SDK's
+    # BlobServiceClient takes account_url, not just the FQDN).
+    "BLOB_ARCHIVE_ACCOUNT"   = azurerm_storage_account.raw_archive.primary_blob_endpoint
+    "BLOB_ARCHIVE_CONTAINER" = azurerm_storage_container.telemetry_raw.name
   }
 
   # WEBSITE_RUN_FROM_PACKAGE is set by `az functionapp deployment source
@@ -158,6 +167,19 @@ resource "azurerm_cosmosdb_sql_role_assignment" "func_to_cosmos_writer" {
   role_definition_id = "${azurerm_cosmosdb_account.main.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
   principal_id       = azurerm_linux_function_app.telemetry_writer.identity[0].principal_id
   scope              = azurerm_cosmosdb_account.main.id
+}
+
+# Slice β: raw archive write path. 'Storage Blob Data Contributor'
+# scoped to the archive SA — single-container account today, narrow
+# to container scope when more containers exist. RBAC propagation is
+# 30-60s the first time; expect the writer to log 403 on the initial
+# upload attempts after a fresh apply.
+resource "azurerm_role_assignment" "func_to_blob_archive" {
+  provider = azurerm.workload
+
+  scope                = azurerm_storage_account.raw_archive.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_linux_function_app.telemetry_writer.identity[0].principal_id
 }
 
 # Route Function App platform logs + metrics to LAW so trigger errors,
