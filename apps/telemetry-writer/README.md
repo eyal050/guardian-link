@@ -1,17 +1,28 @@
 # GuardianLink telemetry-writer Function
 
 Event-Hub-triggered Python Function App that consumes from the
-`telemetry` hub and (eventually) writes raw events to Blob + hot rows
-to Cosmos.
+`telemetry` hub, upserts each event into Cosmos, and archives every
+batch as NDJSON to a separate Blob storage account.
 
-**Slice α+** the function logs each event to App Insights *and* upserts
-it into the Cosmos `telemetry` container as a JSON document. Blob raw-
-archive write is a future slice.
+**Slice β** (current) the function:
+- logs each event to App Insights,
+- upserts each event into Cosmos `telemetry` (per-event, idempotent
+  on `id = <partition>-<offset>`),
+- writes every batch as one NDJSON block-blob to the `telemetry-raw`
+  container on `stglraw…` (per-invocation, idempotent on a deterministic
+  `events/year=…/month=…/.../p<part>-<startOff>-<endOff>.ndjson` name).
+
+Trigger cardinality is `many` so a Functions invocation maps 1:1 to a
+single archive blob. See architecture decision #10 for the choices
+behind format/path/scope.
 
 The infrastructure (App Service plan, Function App, identity-based EH
-connection, `Azure Event Hubs Data Receiver` role grant, FunctionAppLogs
-diagnostics, and the dedicated `telemetry-writer` consumer group) is in
-`terraform/guardianlink-dev/functions.tf`.
+connection, `Azure Event Hubs Data Receiver` role grant, the dedicated
+`telemetry-writer` consumer group, the `Cosmos DB Built-in Data
+Contributor` role, the `Storage Blob Data Contributor` role on the
+archive SA, and FunctionAppLogs diagnostics) is in
+`terraform/guardianlink-dev/functions.tf`. The archive storage account
+itself (`raw_archive`) lives in `storage.tf`.
 
 ## Why a Function and not a Container App
 
@@ -140,15 +151,46 @@ but it requires Microsoft package repo setup + sudo on Debian/Ubuntu.
      --partition-key-value sim-01 --auth-mode login
    ```
    Should return a positive count and grow over time. (As of writing,
-   `az cosmosdb sql query` is preview — if it's flaky, KQL via LAW on
-   `AppRequests` from the writer also reflects successful writes.)
+   `az cosmosdb sql query` is preview — if the subcommand isn't
+   recognized at all on your CLI, KQL via LAW on `AppRequests` from
+   the writer also reflects successful writes.)
+5. Blob archive check (slice β). The signed-in user needs `Storage
+   Blob Data Reader` on the archive SA (`stglraw…`); grant it once
+   manually, RBAC propagation is 30-60s.
+   ```bash
+   ARCHIVE_SA=$(az storage account list -g rg-guardianlink-dev \
+     --query "[?starts_with(name, 'stglraw')].name | [0]" -o tsv)
+   az storage blob list --account-name "$ARCHIVE_SA" \
+     --container-name telemetry-raw --auth-mode login \
+     --prefix "events/year=$(date -u +%Y)/month=$(date -u +%m)/" \
+     --query "[].{name:name, size:properties.contentLength}" -o table
+   ```
+   Expected: one blob per writer invocation under the current hour
+   bucket, with non-zero size. Names follow the
+   `events/year=YYYY/month=MM/day=DD/hour=HH/p<part>-<startOff>-<endOff>.ndjson`
+   convention. Spot-check a single blob:
+   ```bash
+   BLOB=$(az storage blob list --account-name "$ARCHIVE_SA" \
+     --container-name telemetry-raw --auth-mode login \
+     --prefix "events/year=$(date -u +%Y)/" \
+     --query "[0].name" -o tsv)
+   az storage blob download --account-name "$ARCHIVE_SA" \
+     --container-name telemetry-raw --auth-mode login \
+     --name "$BLOB" --file /dev/stdout
+   ```
+   Each line should be one JSON document with `id`, `device_id`,
+   `partition_id`, `offset`, `sequence_number`, `enqueued_time`,
+   `received_time` plus the original payload fields.
 
 ## What's NOT in this slice
 
-- Blob write of raw events (next slice).
+- Parquet conversion of the NDJSON archive (downstream batch job, not
+  this writer).
+- Lifecycle policy on `telemetry-raw` (hot → cool → archive). Defer
+  until empirical sizing exists.
 - DLQ / poison-message handling beyond default trigger retry.
-- Batch cardinality (currently single-event; `cardinality=many` is a
-  follow-up perf slice).
+- Identity-only enforcement on the archive SA
+  (`shared_access_key_enabled=false` flip is a separate slice).
 
 ## Troubleshooting
 
@@ -170,3 +212,10 @@ but it requires Microsoft package repo setup + sudo on Debian/Ubuntu.
   access to the EH namespace's metadata too in some scenarios. If
   symptoms point that way, broaden the role scope from the hub to the
   namespace temporarily and narrow back once it works.
+- **`event_received` logs but no blobs in `telemetry-raw`.** Almost
+  certainly the writer MI's `Storage Blob Data Contributor` role
+  hasn't propagated yet (60s+ on a fresh apply). Confirm with
+  `FunctionAppLogs | where Message contains "AuthorizationPermission"`
+  in LAW. If the role is propagated and writes still fail, double-
+  check that `BLOB_ARCHIVE_ACCOUNT` in app settings ends with a
+  trailing `/` (it's `primary_blob_endpoint`, not the FQDN).
