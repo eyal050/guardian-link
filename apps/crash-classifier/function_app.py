@@ -166,6 +166,13 @@ def classify_crash(event: func.EventHubEvent) -> None:
         )
         return
 
+    if event.enqueued_time:
+        latency_ms = (datetime.now(timezone.utc) - event.enqueued_time).total_seconds() * 1000
+        logging.info(
+            "classifier_latency_ms=%.1f device_id=%s confidence=%.3f",
+            latency_ms, device_id, confidence,
+        )
+
     from azure.servicebus import ServiceBusMessage  # lazy — keep in sync with _get_sb_sender
     message_id = f"{device_id}|{crash_timestamp}"
     sb_payload = {
@@ -174,6 +181,8 @@ def classify_crash(event: func.EventHubEvent) -> None:
         "confidence": confidence,
         "classifier_version": "stub-v1",
     }
+    if event.enqueued_time:
+        sb_payload["eh_enqueued_time"] = event.enqueued_time.isoformat()
     msg = ServiceBusMessage(
         body=json.dumps(sb_payload).encode(),
         message_id=message_id,

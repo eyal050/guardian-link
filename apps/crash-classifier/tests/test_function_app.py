@@ -191,3 +191,40 @@ def test_above_threshold_logs_confirmation(_stub_clients, caplog):
     msgs = [r.getMessage() for r in caplog.records]
     assert any("crash_confirmed_published" in m for m in msgs)
     assert any("device_id=sim-01" in m for m in msgs)
+
+
+# ---------------------------------------------------------------------------
+# Classifier latency
+# ---------------------------------------------------------------------------
+
+def test_classifier_latency_logged_when_enqueued_time_present(_stub_clients, caplog):
+    """enqueued_time set → classifier_latency_ms logged; eh_enqueued_time in SB body."""
+    _, sb_sender = _stub_clients
+    caplog.set_level(logging.INFO)
+
+    classify_crash(_event(_crash_body()))
+
+    msgs = [r.getMessage() for r in caplog.records]
+    assert any("classifier_latency_ms=" in m for m in msgs)
+
+    msg = sb_sender.send_messages.call_args.args[0]
+    payload = json.loads(b"".join(msg.body))
+    assert "eh_enqueued_time" in payload
+
+
+def test_classifier_latency_not_logged_when_enqueued_time_none(_stub_clients, caplog):
+    """enqueued_time=None → no classifier_latency_ms log; no eh_enqueued_time in SB body."""
+    _, sb_sender = _stub_clients
+    caplog.set_level(logging.INFO)
+
+    event = _event(_crash_body())
+    event.enqueued_time = None
+
+    classify_crash(event)
+
+    msgs = [r.getMessage() for r in caplog.records]
+    assert not any("classifier_latency_ms=" in m for m in msgs)
+
+    msg = sb_sender.send_messages.call_args.args[0]
+    payload = json.loads(b"".join(msg.body))
+    assert "eh_enqueued_time" not in payload
