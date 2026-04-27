@@ -2,19 +2,20 @@
 
 Event-Hub-triggered Python Function App that consumes from the
 `telemetry` hub, upserts each event into Cosmos, and archives every
-batch as NDJSON to a separate Blob storage account.
+event as NDJSON to a separate Blob storage account.
 
 **Slice β** (current) the function:
 - logs each event to App Insights,
 - upserts each event into Cosmos `telemetry` (per-event, idempotent
   on `id = <partition>-<offset>`),
-- writes every batch as one NDJSON block-blob to the `telemetry-raw`
-  container on `stglraw…` (per-invocation, idempotent on a deterministic
-  `events/year=…/month=…/.../p<part>-<startOff>-<endOff>.ndjson` name).
+- writes each event as one NDJSON block-blob to the `telemetry-raw`
+  container on `stglraw…` (per-event, idempotent on a deterministic
+  `events/year=…/month=…/.../p<part>-<offset>.ndjson` name).
 
-Trigger cardinality is `many` so a Functions invocation maps 1:1 to a
-single archive blob. See architecture decision #10 for the choices
-behind format/path/scope.
+`cardinality=many` is intentionally absent: bisection showed it causes
+silent "0 functions found" on the Linux Consumption Y1 Python v2 worker.
+See architecture decision #10 for the rationale and the cardinality
+limitation detail.
 
 The infrastructure (App Service plan, Function App, identity-based EH
 connection, `Azure Event Hubs Data Receiver` role grant, the dedicated
@@ -165,9 +166,9 @@ but it requires Microsoft package repo setup + sudo on Debian/Ubuntu.
      --prefix "events/year=$(date -u +%Y)/month=$(date -u +%m)/" \
      --query "[].{name:name, size:properties.contentLength}" -o table
    ```
-   Expected: one blob per writer invocation under the current hour
-   bucket, with non-zero size. Names follow the
-   `events/year=YYYY/month=MM/day=DD/hour=HH/p<part>-<startOff>-<endOff>.ndjson`
+   Expected: one blob per event under the current hour bucket, with
+   non-zero size. Names follow the
+   `events/year=YYYY/month=MM/day=DD/hour=HH/p<partition>-<offset>.ndjson`
    convention. Spot-check a single blob:
    ```bash
    BLOB=$(az storage blob list --account-name "$ARCHIVE_SA" \
