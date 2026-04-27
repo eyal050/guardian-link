@@ -44,9 +44,9 @@ A user wears a BLE device (or runs a mobile app) that continuously samples accel
                           ┌────────────┘  │  └──────────────┐
                           ▼               ▼                 ▼
                       ┌───────┐      ┌─────────┐      ┌─────────────┐
-                      │ Azure │      │ SendGrid│      │ Notification│
-                      │ Comms │      │         │      │ Hubs (push) │
-                      │ (SMS) │      │ (email) │      │             │
+                      │  ACS  │      │   ACS   │      │ Notification│
+                      │ (SMS) │      │ (email) │      │ Hubs (push, │
+                      │       │      │         │      │   stubbed)  │
                       └───────┘      └─────────┘      └─────────────┘
 
  ┌─────────────────┐          ┌──────────────────┐        ┌──────────────┐
@@ -175,6 +175,33 @@ The crash notification path probably wants **at-least-once with dead-letter** (S
     - Rationale: 10% false-positive tolerance accepted at this stage to avoid missing real crashes; threshold is a config value, not hardcoded, so it can tighten as the model improves.
     - ML stub interface: the classifier fetches the telemetry window from Cosmos by `device_id` + time range before calling the stub. The stub receives the full window JSON, not just the raw IoT Hub payload. This mirrors what a real ML endpoint would need.
     - **Service Bus:** Standard tier namespace, identity-auth only (`local_authentication_enabled = false`). Single queue `crash-confirmed`: at-least-once, lock duration 5 min, max delivery count 5 (then DLQ), message TTL 14 days. Queue not topic — one consumer (notifier) today; upgrade to topic/subscription if a second consumer appears. Partitioned queues not enabled: crash volume is single-digit/hour, partitioning buys nothing and complicates DLQ inspection.
+
+12. **Notifier: ACS for both SMS and email; push stubbed; no SendGrid.**
+    - Azure Communication Services is the single ACS resource for SMS and email. SendGrid dropped as redundant — ACS supports both channels from one connection string and one KV secret.
+    - Push notifications: `_send_push_stub` logs `notification_push_stub` but makes no SDK call. No Notification Hub device registration in dev; stub is the right cut given no registered devices exist.
+    - SMS requires a purchased phone number (not included in dev — cost control). The `ACS_SENDER_PHONE` setting holds the number; set to a real number when acquired. Until then, SMS fails if contacts have a phone field, which SB redelivers up to `max_delivery_count=5` then DLQs.
+    - Email uses ACS Azure-managed domain (`DoNotReply@<guid>.azurecomm.net`), no custom domain DNS needed.
+
+13. **Notifier idempotency: Cosmos `notifications` container, `channels_completed` cursor.**
+    - Container `notifications`, `/device_id` partition key, `id = {device_id}|{crash_timestamp}`.
+    - `status`: `in_flight` → `completed`. On redeliver: `status=completed` record short-circuits the entire function; `status=in_flight` record has `channels_completed` as resume cursor — channels already done are skipped, failed channels are retried.
+    - No TTL on the notifications container (crash records kept indefinitely; no regulatory delete needed in dev).
+
+14. **Fan-out error semantics: exceptions propagate; SB redelivers.**
+    - Any channel exception propagates out of `notify_crash`. SB does not receive `Complete()`. SB redelivers up to `max_delivery_count=5`, then DLQs. No custom retry loops — SB redelivery is the retry mechanism.
+    - Resume-from-partial: because `channels_completed` is check-pointed after each channel, a redeliver skips completed channels and retries only the failed one. This turns a 5-attempt budget into a per-channel budget.
+
+15. **Postgres auth for the notifier: password in Key Vault reference, not Entra ID.**
+    - Entra ID auth against Postgres Flexible Server requires AAD-integrated roles and a custom `pg_hba.conf` row; significant complexity for zero interview-prep value.
+    - Pattern used: `random_password` → KV secret → `@Microsoft.KeyVault(SecretUri=...)` in app settings. Function reads `POSTGRES_PASSWORD` as a plain string at runtime; KV reference resolution happens transparently in the Functions host.
+    - `notifier` Postgres role has `SELECT` on `emergency_contacts` and `devices` and `users` (read-only). DDL is run by `psqladmin`.
+
+16. **Key Vault: first KV in the stack; RBAC model.**
+    - `enable_rbac_authorization = true` — all access via RBAC, no legacy access policies.
+    - Operator gets `Key Vault Secrets Officer` (create, read, update, delete secrets).
+    - Function managed identities get `Key Vault Secrets User` (read-only).
+    - `purge_protection_enabled = false` in dev — allows `terraform destroy` to succeed without a 90-day wait.
+    - `soft_delete_retention_days = 7` (Azure minimum).
 
 ## Decisions deliberately left open
 
