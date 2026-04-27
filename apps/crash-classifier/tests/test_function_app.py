@@ -228,3 +228,22 @@ def test_classifier_latency_not_logged_when_enqueued_time_none(_stub_clients, ca
     msg = sb_sender.send_messages.call_args.args[0]
     payload = json.loads(b"".join(msg.body))
     assert "eh_enqueued_time" not in payload
+
+
+def test_classifier_latency_handles_naive_enqueued_time(_stub_clients, caplog):
+    """Naive enqueued_time (no tzinfo, as Functions runtime provides) must not raise."""
+    _, sb_sender = _stub_clients
+    caplog.set_level(logging.INFO)
+
+    event = _event(_crash_body())
+    event.enqueued_time = datetime(2026, 4, 27, 14, 32, 0)  # naive — no tzinfo
+
+    classify_crash(event)
+
+    msgs = [r.getMessage() for r in caplog.records]
+    assert any("classifier_latency_ms=" in m for m in msgs)
+
+    msg = sb_sender.send_messages.call_args.args[0]
+    payload = json.loads(b"".join(msg.body))
+    assert "eh_enqueued_time" in payload
+    assert "+00:00" in payload["eh_enqueued_time"]
