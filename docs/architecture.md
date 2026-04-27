@@ -203,6 +203,14 @@ The crash notification path probably wants **at-least-once with dead-letter** (S
     - `purge_protection_enabled = false` in dev — allows `terraform destroy` to succeed without a 90-day wait.
     - `soft_delete_retention_days = 7` (Azure minimum).
 
+17. **Metrics via `logging.info` to AppTraces, not the Application Insights custom metrics API.**
+    - All pipeline metrics (throughput, classifier latency, end-to-end latency) are emitted as structured `logging.info` lines, queryable in `AppTraces` via KQL `extract()`.
+    - Custom metrics API (`opencensus-ext-azure`) rejected: heavyweight dependency, separate telemetry channel, harder to test. The `logging.info` pattern is already established in every function in the stack.
+    - Throughput: dedicated `metrics` Function App on its own `metrics` consumer group — independent EH offset tracking, zero impact on classifier or writer lag.
+    - Classifier latency (`classifier_latency_ms`): computed inside `classify_crash` as `now() − event.enqueued_time` (T0). Logged only in the `confidence ≥ threshold` branch. `eh_enqueued_time` (T0 ISO string) is also embedded in the SB message body so the notifier can compute end-to-end.
+    - Notification latency: `_log_notification_latency` helper in `notify_crash`, called after all channels complete. Logs `notification_stage_ms` (T2 − T1, where T1 = SB `enqueued_time_utc`) and, when `eh_enqueued_time` is present in the body, `end_to_end_ms` (T2 − T0). Missing timestamps are handled gracefully (warning, no exception).
+    - Migration path: if cardinality-aware metric aggregation becomes important, these log lines can be replaced with `AzureMonitorMetricExporter` (OpenTelemetry) without changing any upstream code.
+
 ## Decisions deliberately left open
 
 See `brainstorming-topics.md`. Do not let Claude Code silently decide these. Make the call yourself and write it down.
