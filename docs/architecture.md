@@ -169,6 +169,13 @@ The crash notification path probably wants **at-least-once with dead-letter** (S
     - **Failure semantics: Cosmos-then-Blob in the same invocation, errors propagate.** EH redelivers the event; Cosmos upsert id is `<partition>-<offset>` (slice α+) and the blob name encodes the same offset, so a redeliver overwrites both deterministically.
     - **Role grant:** writer MI gets `Storage Blob Data Contributor` scoped to the `stglraw…` account (single container today; narrow to container scope when more containers exist).
 
+11. **Crash classifier: 90% confidence threshold; ML stub pulls data from Cosmos.**
+    - Events ≥ 90% confidence → published to the Service Bus `crash-confirmed` queue.
+    - Events < 90%: logged to App Insights (custom event `crash_below_threshold`) with the confidence score and device ID for retrospective analysis. Not queued. No alert fired.
+    - Rationale: 10% false-positive tolerance accepted at this stage to avoid missing real crashes; threshold is a config value, not hardcoded, so it can tighten as the model improves.
+    - ML stub interface: the classifier fetches the telemetry window from Cosmos by `device_id` + time range before calling the stub. The stub receives the full window JSON, not just the raw IoT Hub payload. This mirrors what a real ML endpoint would need.
+    - **Service Bus:** Standard tier namespace, identity-auth only (`local_authentication_enabled = false`). Single queue `crash-confirmed`: at-least-once, lock duration 5 min, max delivery count 5 (then DLQ), message TTL 14 days. Queue not topic — one consumer (notifier) today; upgrade to topic/subscription if a second consumer appears. Partitioned queues not enabled: crash volume is single-digit/hour, partitioning buys nothing and complicates DLQ inspection.
+
 ## Decisions deliberately left open
 
 See `brainstorming-topics.md`. Do not let Claude Code silently decide these. Make the call yourself and write it down.
