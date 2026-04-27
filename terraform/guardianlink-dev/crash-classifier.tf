@@ -60,9 +60,10 @@ resource "azurerm_linux_function_app" "crash_classifier" {
     "CLASSIFIER_CONFIDENCE_THRESHOLD" = "0.9"
     "TELEMETRY_WINDOW_SECONDS"        = "30"
 
-    # ML_ENDPOINT_URL empty = use the hardcoded stub in function_app.py.
-    # Set this to the Container App URL once the ML stub slice is deployed.
-    "ML_ENDPOINT_URL" = ""
+    # ML stub Container App — see ml-stub.tf.
+    # Pointing at /classify on the Container App; the Function's _call_ml()
+    # falls back to the hardcoded stub only when this is empty.
+    "ML_ENDPOINT_URL" = "https://${azurerm_container_app.ml_stub.latest_revision_fqdn}/classify"
   }
 
   lifecycle {
