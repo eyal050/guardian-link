@@ -103,6 +103,22 @@ resource "azurerm_cosmosdb_sql_container" "telemetry" {
 # config changes. Skipping Mongo/Cassandra/Gremlin/Table categories
 # (SQL API only) and PartitionKeyRUConsumption (high cardinality,
 # enable on demand when investigating hot-partition incidents).
+# Notifications container: idempotency records and delivery status per
+# confirmed crash. No TTL — crash records are safety evidence and must
+# be retained indefinitely. Partition key /device_id mirrors the
+# telemetry container; the notifier always queries by device_id.
+resource "azurerm_cosmosdb_sql_container" "notifications" {
+  provider = azurerm.workload
+
+  name                = "notifications"
+  resource_group_name = azurerm_resource_group.main.name
+  account_name        = azurerm_cosmosdb_account.main.name
+  database_name       = azurerm_cosmosdb_sql_database.main.name
+
+  partition_key_paths = ["/device_id"]
+  partition_key_kind  = "Hash"
+}
+
 resource "azurerm_monitor_diagnostic_setting" "cosmos" {
   provider = azurerm.workload
 
