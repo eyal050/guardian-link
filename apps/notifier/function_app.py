@@ -177,6 +177,41 @@ def _send_push_stub(contacts: list[dict[str, Any]], device_id: str) -> None:
         )
 
 
+def _log_notification_latency(
+    msg: func.ServiceBusMessage,
+    body: dict[str, Any],
+    completed_at: str,
+) -> None:
+    completed_dt = datetime.fromisoformat(completed_at)
+
+    sb_enqueued = msg.enqueued_time_utc
+    if sb_enqueued is None:
+        logging.warning("notification_latency_skipped reason=no_sb_enqueued_time")
+        return
+
+    stage_ms = (completed_dt - sb_enqueued).total_seconds() * 1000
+
+    eh_ts_raw = body.get("eh_enqueued_time")
+    e2e_ms = None
+    if eh_ts_raw:
+        try:
+            eh_dt = datetime.fromisoformat(eh_ts_raw)
+            e2e_ms = (completed_dt - eh_dt).total_seconds() * 1000
+        except ValueError:
+            pass
+
+    if e2e_ms is not None:
+        logging.info(
+            "notification_latency device_id=%s end_to_end_ms=%.1f notification_stage_ms=%.1f",
+            body.get("device_id", ""), e2e_ms, stage_ms,
+        )
+    else:
+        logging.info(
+            "notification_latency device_id=%s notification_stage_ms=%.1f",
+            body.get("device_id", ""), stage_ms,
+        )
+
+
 @app.service_bus_queue_trigger(
     arg_name="msg",
     queue_name="crash-confirmed",
@@ -252,4 +287,5 @@ def notify_crash(msg: func.ServiceBusMessage) -> None:
     record["status"] = "completed"
     record["completed_at"] = now
     _upsert_notification_record(container, record)
+    _log_notification_latency(msg, body, now)
     # SB Complete() is implicit on clean return

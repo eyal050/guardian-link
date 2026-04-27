@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -20,6 +21,7 @@ def _msg(device_id=_DEVICE_ID, crash_timestamp=_CRASH_TS, confidence=0.95):
         "confidence": confidence,
         "classifier_version": "stub-v1",
     }).encode()
+    m.enqueued_time_utc = datetime(2026, 4, 27, 14, 32, 3, tzinfo=timezone.utc)
     return m
 
 
