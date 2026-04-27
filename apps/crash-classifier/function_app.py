@@ -167,7 +167,10 @@ def classify_crash(event: func.EventHubEvent) -> None:
         return
 
     if event.enqueued_time:
-        latency_ms = (datetime.now(timezone.utc) - event.enqueued_time).total_seconds() * 1000
+        eh_time = event.enqueued_time
+        if eh_time.tzinfo is None:
+            eh_time = eh_time.replace(tzinfo=timezone.utc)
+        latency_ms = (datetime.now(timezone.utc) - eh_time).total_seconds() * 1000
         logging.info(
             "classifier_latency_ms=%.1f device_id=%s confidence=%.3f",
             latency_ms, device_id, confidence,
@@ -182,7 +185,10 @@ def classify_crash(event: func.EventHubEvent) -> None:
         "classifier_version": "stub-v1",
     }
     if event.enqueued_time:
-        sb_payload["eh_enqueued_time"] = event.enqueued_time.isoformat()
+        eh_time = event.enqueued_time
+        if eh_time.tzinfo is None:
+            eh_time = eh_time.replace(tzinfo=timezone.utc)
+        sb_payload["eh_enqueued_time"] = eh_time.isoformat()
     msg = ServiceBusMessage(
         body=json.dumps(sb_payload).encode(),
         message_id=message_id,
