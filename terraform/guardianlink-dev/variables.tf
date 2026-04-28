@@ -45,3 +45,9 @@ variable "owner" {
   default     = "eyal050@gmail.com"
   description = "Used in the owner tag."
 }
+
+variable "workload_subscription_id" {
+  type        = string
+  default     = "WORKLOAD_SUBSCRIPTION_ID_PLACEHOLDER"
+  description = "Subscription ID of the existing workload subscription. Replaces azurerm_subscription.main for pipelines that lack billing alias permissions."
+}
