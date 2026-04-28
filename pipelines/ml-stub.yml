@@ -26,7 +26,7 @@ stages:
           - script: |
               cd apps/ml-stub
               pip install pytest -q
-              PYTHONPATH=. pytest tests/ -v
+              pytest tests/ -v
             displayName: Run tests
 
   - stage: build_push_dev
