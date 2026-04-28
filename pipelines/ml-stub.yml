@@ -111,7 +111,8 @@ stages:
                       az rest \
                         --method post \
                         --uri "https://management.azure.com${APP_RES_ID}/Annotations?api-version=2015-05-01" \
-                        --body "{\"Id\":\"${ANNO_ID}\",\"AnnotationName\":\"deploy-ml-stub\",\"EventTime\":\"${ANNO_TIME}\",\"Category\":\"Deployment\",\"Properties\":\"{\\\"ReleaseVersion\\\":\\\"$(DEPLOY_VERSION)\\\"}\"}"
+                        --body "{\"Id\":\"${ANNO_ID}\",\"AnnotationName\":\"deploy-ml-stub\",\"EventTime\":\"${ANNO_TIME}\",\"Category\":\"Deployment\",\"Properties\":\"{\\\"ReleaseVersion\\\":\\\"$(DEPLOY_VERSION)\\\"}\"}" \
+                        || echo "Annotation skipped (workspace-based App Insights does not support this API)."
 
   - stage: deploy_prod
     displayName: Deploy to Prod (stub)
