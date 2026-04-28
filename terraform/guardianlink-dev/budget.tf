@@ -2,7 +2,7 @@ resource "azurerm_consumption_budget_subscription" "main" {
   provider = azurerm.workload
 
   name            = "budget-${var.application_name}-${var.environment_name}"
-  subscription_id = "/subscriptions/${azurerm_subscription.main.subscription_id}"
+  subscription_id = "/subscriptions/${var.workload_subscription_id}"
 
   amount     = var.budget_amount
   time_grain = "Monthly"

@@ -28,6 +28,6 @@ provider "azurerm" {
 # Every workload resource MUST set provider = azurerm.workload.
 provider "azurerm" {
   alias           = "workload"
-  subscription_id = azurerm_subscription.main.subscription_id
+  subscription_id = var.workload_subscription_id
   features {}
 }
