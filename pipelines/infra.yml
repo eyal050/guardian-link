@@ -116,8 +116,6 @@ stages:
     displayName: Apply Dev
     dependsOn: plan_dev
     condition: succeeded()
-    variables:
-      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
     jobs:
       - deployment: apply
         displayName: terraform apply + update infra-outputs
@@ -178,7 +176,7 @@ stages:
                   displayName: Update guardianlink-infra-outputs variable group
                   condition: succeeded()
                   env:
-                    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+                    ADO_SETUP_PAT: $(ADO_SETUP_PAT)
                   inputs:
                     azureSubscription: guardianlink-azure
                     scriptType: bash
@@ -233,11 +231,7 @@ stages:
                         --arg proj_name "$ADO_PROJECT" \
                         '[{name: $vgname, projectReference: {id: $proj_id, name: $proj_name}}]')
 
-                      if [ -z "$SYSTEM_ACCESSTOKEN" ]; then
-                        echo "ERROR: SYSTEM_ACCESSTOKEN is empty." >&2
-                        exit 1
-                      fi
-                      VG_RESP=$(curl -sf -u ":${SYSTEM_ACCESSTOKEN}" \
+                      VG_RESP=$(curl -sf -u ":${ADO_SETUP_PAT}" \
                         "${API}/variablegroups?groupName=${VG_NAME}&api-version=7.0")
                       VG_ID=$(echo "$VG_RESP" | jq -r '.value[0].id // empty')
 
@@ -247,7 +241,7 @@ stages:
                           --argjson vars "$VARIABLES" \
                           --argjson refs "$PROJECT_REF" \
                           '{id: $id, name: $name, type: "Vsts", variables: $vars, variableGroupProjectReferences: $refs}')
-                        curl -sf -u ":${SYSTEM_ACCESSTOKEN}" \
+                        curl -sf -u ":${ADO_SETUP_PAT}" \
                           -X PUT -H "Content-Type: application/json" \
                           -d "$PAYLOAD" \
                           "${API}/variablegroups/${VG_ID}?api-version=7.0" > /dev/null
@@ -258,7 +252,7 @@ stages:
                           --argjson vars "$VARIABLES" \
                           --argjson refs "$PROJECT_REF" \
                           '{name: $name, type: "Vsts", variables: $vars, variableGroupProjectReferences: $refs}')
-                        curl -sf -u ":${SYSTEM_ACCESSTOKEN}" \
+                        curl -sf -u ":${ADO_SETUP_PAT}" \
                           -X POST -H "Content-Type: application/json" \
                           -d "$PAYLOAD" \
                           "${API}/variablegroups?api-version=7.0" > /dev/null
