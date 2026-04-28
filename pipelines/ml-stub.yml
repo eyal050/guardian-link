@@ -25,9 +25,8 @@ stages:
 
           - script: |
               cd apps/ml-stub
-              pip install -r tests/requirements-test.txt -q 2>/dev/null \
-                || pip install pytest httpx -q
-              pytest tests/ -v
+              pip install pytest -q
+              PYTHONPATH=. pytest tests/ -v
             displayName: Run tests
 
   - stage: build_push_dev
