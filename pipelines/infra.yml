@@ -24,11 +24,21 @@ stages:
         steps:
           - bash: |
               set -euo pipefail
-              curl -fsSL "https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_linux_amd64.zip" -o terraform.zip
-              unzip -o terraform.zip
-              sudo mv terraform /usr/local/bin/terraform
+              INSTALL_DIR="${AGENT_TEMPDIRECTORY}/terraform-install"
+              rm -rf "$INSTALL_DIR"
+              mkdir -p "$INSTALL_DIR"
+
+              curl -fsSL \
+                "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
+                -o "$INSTALL_DIR/terraform.zip"
+
+              unzip -o "$INSTALL_DIR/terraform.zip" -d "$INSTALL_DIR"
+              sudo install -m 0755 "$INSTALL_DIR/terraform" /usr/local/bin/terraform
+
               terraform version
             displayName: Install Terraform
+            env:
+              TERRAFORM_VERSION: $(TERRAFORM_VERSION)
 
           - task: AzureCLI@2
             displayName: Terraform init (no backend) + validate
@@ -60,11 +70,21 @@ stages:
         steps:
           - bash: |
               set -euo pipefail
-              curl -fsSL "https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_linux_amd64.zip" -o terraform.zip
-              unzip -o terraform.zip
-              sudo mv terraform /usr/local/bin/terraform
+              INSTALL_DIR="${AGENT_TEMPDIRECTORY}/terraform-install"
+              rm -rf "$INSTALL_DIR"
+              mkdir -p "$INSTALL_DIR"
+
+              curl -fsSL \
+                "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
+                -o "$INSTALL_DIR/terraform.zip"
+
+              unzip -o "$INSTALL_DIR/terraform.zip" -d "$INSTALL_DIR"
+              sudo install -m 0755 "$INSTALL_DIR/terraform" /usr/local/bin/terraform
+
               terraform version
             displayName: Install Terraform
+            env:
+              TERRAFORM_VERSION: $(TERRAFORM_VERSION)
 
           - task: AzureCLI@2
             displayName: Terraform init + plan
@@ -111,11 +131,21 @@ stages:
 
                 - bash: |
                     set -euo pipefail
-                    curl -fsSL "https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_linux_amd64.zip" -o terraform.zip
-                    unzip -o terraform.zip
-                    sudo mv terraform /usr/local/bin/terraform
+                    INSTALL_DIR="${AGENT_TEMPDIRECTORY}/terraform-install"
+                    rm -rf "$INSTALL_DIR"
+                    mkdir -p "$INSTALL_DIR"
+
+                    curl -fsSL \
+                      "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
+                      -o "$INSTALL_DIR/terraform.zip"
+
+                    unzip -o "$INSTALL_DIR/terraform.zip" -d "$INSTALL_DIR"
+                    sudo install -m 0755 "$INSTALL_DIR/terraform" /usr/local/bin/terraform
+
                     terraform version
                   displayName: Install Terraform
+                  env:
+                    TERRAFORM_VERSION: $(TERRAFORM_VERSION)
 
                 - download: current
                   artifact: tfplan-dev
