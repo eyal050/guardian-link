@@ -185,6 +185,7 @@ stages:
                     scriptLocation: inlineScript
                     addSpnToEnvironment: true
                     inlineScript: |
+                      set -euo pipefail
                       cd terraform/guardianlink-dev
                       export ARM_CLIENT_ID=$servicePrincipalId
                       export ARM_TENANT_ID=$tenantId
@@ -204,6 +205,7 @@ stages:
 
                       ADO_ORG="eyal050"
                       ADO_PROJECT="guardianlink"
+                      ADO_PROJECT_ID="ADO_PROJECT_ID_PLACEHOLDER"
                       VG_NAME="guardianlink-infra-outputs"
                       API="https://dev.azure.com/${ADO_ORG}/${ADO_PROJECT}/_apis/distributedtask"
 
@@ -225,8 +227,14 @@ stages:
                           CONTAINER_APP_ML_STUB_NAME: {value: $ca}
                         }')
 
+                      PROJECT_REF=$(jq -n \
+                        --arg vgname "$VG_NAME" \
+                        --arg proj_id "$ADO_PROJECT_ID" \
+                        --arg proj_name "$ADO_PROJECT" \
+                        '[{name: $vgname, projectReference: {id: $proj_id, name: $proj_name}}]')
+
                       if [ -z "$SYSTEM_ACCESSTOKEN" ]; then
-                        echo "ERROR: SYSTEM_ACCESSTOKEN is empty. Enable 'Allow scripts to access the OAuth token' in pipeline settings." >&2
+                        echo "ERROR: SYSTEM_ACCESSTOKEN is empty." >&2
                         exit 1
                       fi
                       VG_RESP=$(curl -sf -u ":${SYSTEM_ACCESSTOKEN}" \
@@ -237,20 +245,23 @@ stages:
                         PAYLOAD=$(jq -n \
                           --argjson id "$VG_ID" --arg name "$VG_NAME" \
                           --argjson vars "$VARIABLES" \
-                          '{id: $id, name: $name, type: "Vsts", variables: $vars}')
+                          --argjson refs "$PROJECT_REF" \
+                          '{id: $id, name: $name, type: "Vsts", variables: $vars, variableGroupProjectReferences: $refs}')
                         curl -sf -u ":${SYSTEM_ACCESSTOKEN}" \
                           -X PUT -H "Content-Type: application/json" \
                           -d "$PAYLOAD" \
-                          "${API}/variablegroups/${VG_ID}?api-version=7.0"
+                          "${API}/variablegroups/${VG_ID}?api-version=7.0" > /dev/null
                         echo "Variable group ${VG_NAME} updated (id=${VG_ID})."
                       else
                         PAYLOAD=$(jq -n \
-                          --arg name "$VG_NAME" --argjson vars "$VARIABLES" \
-                          '{name: $name, type: "Vsts", variables: $vars}')
+                          --arg name "$VG_NAME" \
+                          --argjson vars "$VARIABLES" \
+                          --argjson refs "$PROJECT_REF" \
+                          '{name: $name, type: "Vsts", variables: $vars, variableGroupProjectReferences: $refs}')
                         curl -sf -u ":${SYSTEM_ACCESSTOKEN}" \
                           -X POST -H "Content-Type: application/json" \
                           -d "$PAYLOAD" \
-                          "${API}/variablegroups?api-version=7.0"
+                          "${API}/variablegroups?api-version=7.0" > /dev/null
                         echo "Variable group ${VG_NAME} created."
                       fi
 
