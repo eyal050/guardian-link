@@ -1,0 +1,226 @@
+# pipelines/infra.yml
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - terraform/guardianlink-dev/**
+      - pipelines/infra.yml
+
+variables:
+  - group: guardianlink-backend
+
+stages:
+  - stage: validate
+    displayName: Validate
+    jobs:
+      - job: validate
+        displayName: fmt-check + validate
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: AzureCLI@2
+            displayName: Terraform init (no backend) + validate
+            inputs:
+              azureSubscription: guardianlink-azure
+              scriptType: bash
+              scriptLocation: inlineScript
+              addSpnToEnvironment: true
+              inlineScript: |
+                cd terraform/guardianlink-dev
+                export ARM_CLIENT_ID=$servicePrincipalId
+                export ARM_TENANT_ID=$tenantId
+                export ARM_SUBSCRIPTION_ID=$subscriptionId
+                export ARM_USE_OIDC=true
+                export ARM_OIDC_TOKEN=$idToken
+                terraform init -backend=false -input=false
+                terraform fmt -check -recursive
+                terraform validate
+
+  - stage: plan_dev
+    displayName: Plan Dev
+    dependsOn: validate
+    condition: succeeded()
+    jobs:
+      - job: plan
+        displayName: terraform plan
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: AzureCLI@2
+            displayName: Terraform init + plan
+            inputs:
+              azureSubscription: guardianlink-azure
+              scriptType: bash
+              scriptLocation: inlineScript
+              addSpnToEnvironment: true
+              inlineScript: |
+                cd terraform/guardianlink-dev
+                export ARM_CLIENT_ID=$servicePrincipalId
+                export ARM_TENANT_ID=$tenantId
+                export ARM_SUBSCRIPTION_ID=$subscriptionId
+                export ARM_USE_OIDC=true
+                export ARM_OIDC_TOKEN=$idToken
+                terraform init \
+                  -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
+                  -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
+                  -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
+                  -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
+                  -input=false
+                terraform plan -out="$(Build.ArtifactStagingDirectory)/tfplan" -input=false
+          - publish: $(Build.ArtifactStagingDirectory)/tfplan
+            artifact: tfplan-dev
+            displayName: Publish plan artifact
+
+  - stage: apply_dev
+    displayName: Apply Dev
+    dependsOn: plan_dev
+    condition: succeeded()
+    jobs:
+      - deployment: apply
+        displayName: terraform apply + update infra-outputs
+        environment: dev
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - download: current
+                  artifact: tfplan-dev
+
+                - task: AzureCLI@2
+                  displayName: Terraform apply
+                  inputs:
+                    azureSubscription: guardianlink-azure
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    addSpnToEnvironment: true
+                    inlineScript: |
+                      cd terraform/guardianlink-dev
+                      export ARM_CLIENT_ID=$servicePrincipalId
+                      export ARM_TENANT_ID=$tenantId
+                      export ARM_SUBSCRIPTION_ID=$subscriptionId
+                      export ARM_USE_OIDC=true
+                      export ARM_OIDC_TOKEN=$idToken
+                      terraform init \
+                        -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
+                        -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
+                        -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
+                        -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
+                        -input=false
+                      terraform apply -input=false "$(Pipeline.Workspace)/tfplan-dev/tfplan"
+
+                - task: AzureCLI@2
+                  displayName: Update guardianlink-infra-outputs variable group
+                  env:
+                    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+                  inputs:
+                    azureSubscription: guardianlink-azure
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    addSpnToEnvironment: true
+                    inlineScript: |
+                      cd terraform/guardianlink-dev
+                      export ARM_CLIENT_ID=$servicePrincipalId
+                      export ARM_TENANT_ID=$tenantId
+                      export ARM_SUBSCRIPTION_ID=$subscriptionId
+                      export ARM_USE_OIDC=true
+                      export ARM_OIDC_TOKEN=$idToken
+                      terraform init \
+                        -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
+                        -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
+                        -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
+                        -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
+                        -input=false
+
+                      TF_JSON=$(terraform output -json)
+                      RG=$(echo "$TF_JSON"             | jq -r '.resource_group_name.value')
+                      APPI=$(echo "$TF_JSON"           | jq -r '.app_insights_name.value')
+                      ACR_SERVER=$(echo "$TF_JSON"     | jq -r '.acr_login_server.value')
+                      ACR_NAME=$(echo "$TF_JSON"       | jq -r '.acr_name.value')
+                      FUNC_TW=$(echo "$TF_JSON"        | jq -r '.func_telemetry_writer_name.value')
+                      FUNC_CC=$(echo "$TF_JSON"        | jq -r '.func_crash_classifier_name.value')
+                      FUNC_NOT=$(echo "$TF_JSON"       | jq -r '.func_notifier_name.value')
+                      FUNC_MET=$(echo "$TF_JSON"       | jq -r '.func_metrics_name.value')
+                      CA_ML=$(echo "$TF_JSON"          | jq -r '.container_app_ml_stub_name.value')
+
+                      ADO_ORG="eyal050"
+                      ADO_PROJECT="guardianlink"
+                      VG_NAME="guardianlink-infra-outputs"
+                      API="https://dev.azure.com/${ADO_ORG}/${ADO_PROJECT}/_apis/distributedtask"
+
+                      VARIABLES=$(jq -n \
+                        --arg rg "$RG" --arg appi "$APPI" \
+                        --arg acr_s "$ACR_SERVER" --arg acr_n "$ACR_NAME" \
+                        --arg tw "$FUNC_TW" --arg cc "$FUNC_CC" \
+                        --arg not "$FUNC_NOT" --arg met "$FUNC_MET" \
+                        --arg ca "$CA_ML" \
+                        '{
+                          RESOURCE_GROUP_NAME:        {value: $rg},
+                          APP_INSIGHTS_NAME:          {value: $appi},
+                          ACR_LOGIN_SERVER:           {value: $acr_s},
+                          ACR_NAME:                   {value: $acr_n},
+                          FUNC_TELEMETRY_WRITER_NAME: {value: $tw},
+                          FUNC_CRASH_CLASSIFIER_NAME: {value: $cc},
+                          FUNC_NOTIFIER_NAME:         {value: $not},
+                          FUNC_METRICS_NAME:          {value: $met},
+                          CONTAINER_APP_ML_STUB_NAME: {value: $ca}
+                        }')
+
+                      VG_RESP=$(curl -sf -u ":${SYSTEM_ACCESSTOKEN}" \
+                        "${API}/variablegroups?groupName=${VG_NAME}&api-version=7.0")
+                      VG_ID=$(echo "$VG_RESP" | jq -r '.value[0].id // empty')
+
+                      if [ -n "$VG_ID" ]; then
+                        PAYLOAD=$(jq -n \
+                          --argjson id "$VG_ID" --arg name "$VG_NAME" \
+                          --argjson vars "$VARIABLES" \
+                          '{id: $id, name: $name, type: "Vsts", variables: $vars}')
+                        curl -sf -u ":${SYSTEM_ACCESSTOKEN}" \
+                          -X PUT -H "Content-Type: application/json" \
+                          -d "$PAYLOAD" \
+                          "${API}/variablegroups/${VG_ID}?api-version=7.0"
+                        echo "Variable group ${VG_NAME} updated (id=${VG_ID})."
+                      else
+                        PAYLOAD=$(jq -n \
+                          --arg name "$VG_NAME" --argjson vars "$VARIABLES" \
+                          '{name: $name, type: "Vsts", variables: $vars}')
+                        curl -sf -u ":${SYSTEM_ACCESSTOKEN}" \
+                          -X POST -H "Content-Type: application/json" \
+                          -d "$PAYLOAD" \
+                          "${API}/variablegroups?api-version=7.0"
+                        echo "Variable group ${VG_NAME} created."
+                      fi
+
+  - stage: plan_prod
+    displayName: Plan Prod (stub)
+    dependsOn: apply_dev
+    condition: succeeded()
+    jobs:
+      - job: stub
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - script: echo "Prod workspace not yet configured."
+            displayName: Prod plan stub
+
+  - stage: apply_prod
+    displayName: Apply Prod (stub)
+    dependsOn: plan_prod
+    condition: succeeded()
+    jobs:
+      - deployment: apply_prod
+        displayName: Prod apply stub
+        environment: prod
+        pool:
+          vmImage: ubuntu-latest
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: echo "Prod workspace not yet configured."
+                  displayName: Prod apply stub
