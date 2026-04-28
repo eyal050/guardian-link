@@ -183,13 +183,21 @@ stages:
                     scriptLocation: inlineScript
                     addSpnToEnvironment: true
                     inlineScript: |
-                      set -euo pipefail
+                      set -euxo pipefail
+                      echo "ADO_SETUP_PAT length: ${#ADO_SETUP_PAT}"
                       cd terraform/guardianlink-dev
                       export ARM_CLIENT_ID=$servicePrincipalId
                       export ARM_TENANT_ID=$tenantId
                       export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
                       export ARM_USE_OIDC=true
                       export ARM_OIDC_TOKEN=$idToken
+                      terraform init \
+                        -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
+                        -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
+                        -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
+                        -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
+                        -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
+                        -input=false -reconfigure
                       TF_JSON=$(terraform output -json)
                       RG=$(echo "$TF_JSON"             | jq -r '.resource_group_name.value')
                       APPI=$(echo "$TF_JSON"           | jq -r '.app_insights_name.value')
@@ -231,8 +239,9 @@ stages:
                         --arg proj_name "$ADO_PROJECT" \
                         '[{name: $vgname, projectReference: {id: $proj_id, name: $proj_name}}]')
 
-                      VG_RESP=$(curl -sf -u ":${ADO_SETUP_PAT}" \
+                      VG_RESP=$(curl -s -u ":${ADO_SETUP_PAT}" \
                         "${API}/variablegroups?groupName=${VG_NAME}&api-version=7.0")
+                      echo "GET VG response count: $(echo "$VG_RESP" | jq '.count // "parse-err"')"
                       VG_ID=$(echo "$VG_RESP" | jq -r '.value[0].id // empty')
 
                       if [ -n "$VG_ID" ]; then
