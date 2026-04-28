@@ -39,8 +39,8 @@ APP_ID=$(az ad app create --display-name "$SP_NAME" --query appId -o tsv)
 echo "    App (client) ID: ${APP_ID}"
 
 echo "==> Creating service principal..."
-SP_OBJ_ID=$(az ad sp create --id "$APP_ID" --query id -o tsv)
-echo "    SP object ID: ${SP_OBJ_ID}"
+az ad sp create --id "$APP_ID" --output none
+echo "    Done."
 
 echo "==> Assigning Owner on subscription ${SUB_ID}..."
 az role assignment create \

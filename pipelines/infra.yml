@@ -20,6 +20,11 @@ stages:
         pool:
           vmImage: ubuntu-latest
         steps:
+          - task: TerraformInstaller@1
+            displayName: Install Terraform
+            inputs:
+              terraformVersion: latest
+
           - task: AzureCLI@2
             displayName: Terraform init (no backend) + validate
             inputs:
@@ -48,6 +53,11 @@ stages:
         pool:
           vmImage: ubuntu-latest
         steps:
+          - task: TerraformInstaller@1
+            displayName: Install Terraform
+            inputs:
+              terraformVersion: latest
+
           - task: AzureCLI@2
             displayName: Terraform init + plan
             inputs:
@@ -91,6 +101,11 @@ stages:
               steps:
                 - checkout: self
 
+                - task: TerraformInstaller@1
+                  displayName: Install Terraform
+                  inputs:
+                    terraformVersion: latest
+
                 - download: current
                   artifact: tfplan-dev
 
@@ -118,6 +133,7 @@ stages:
 
                 - task: AzureCLI@2
                   displayName: Update guardianlink-infra-outputs variable group
+                  condition: succeeded()
                   env:
                     SYSTEM_ACCESSTOKEN: $(System.AccessToken)
                   inputs:

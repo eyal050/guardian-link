@@ -19,6 +19,7 @@ jobs:
       - name: Push mirror to ADO
         run: |
           git remote add ado "https://eyal050:${ADO_MIRROR_PAT}@dev.azure.com/eyal050/guardianlink/_git/guardian-link"
-          git push ado --mirror
+          git push ado --all
+          git push ado --tags
         env:
           ADO_MIRROR_PAT: ${{ secrets.ADO_MIRROR_PAT }}

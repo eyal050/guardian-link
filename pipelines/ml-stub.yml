@@ -34,8 +34,6 @@ stages:
     displayName: Build, Push & Deploy to Dev
     dependsOn: build_test
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-    variables:
-      - group: guardianlink-infra-outputs
     jobs:
       - deployment: deploy
         displayName: Build image, push to ACR, update Container App
