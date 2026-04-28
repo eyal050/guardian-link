@@ -58,10 +58,13 @@ stages:
         pool:
           vmImage: ubuntu-latest
         steps:
-          - task: TerraformInstaller@1
+          - bash: |
+              set -euo pipefail
+              curl -fsSL "https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_linux_amd64.zip" -o terraform.zip
+              unzip -o terraform.zip
+              sudo mv terraform /usr/local/bin/terraform
+              terraform version
             displayName: Install Terraform
-            inputs:
-              terraformVersion: latest
 
           - task: AzureCLI@2
             displayName: Terraform init + plan
@@ -106,10 +109,13 @@ stages:
               steps:
                 - checkout: self
 
-                - task: TerraformInstaller@1
+                - bash: |
+                    set -euo pipefail
+                    curl -fsSL "https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_linux_amd64.zip" -o terraform.zip
+                    unzip -o terraform.zip
+                    sudo mv terraform /usr/local/bin/terraform
+                    terraform version
                   displayName: Install Terraform
-                  inputs:
-                    terraformVersion: latest
 
                 - download: current
                   artifact: tfplan-dev
