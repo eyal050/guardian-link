@@ -1,0 +1,24 @@
+# .github/workflows/mirror-to-ado.yml
+name: Mirror to Azure DevOps
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  mirror:
+    name: Push to ADO git
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push mirror to ADO
+        run: |
+          git remote add ado "https://eyal050:${ADO_MIRROR_PAT}@dev.azure.com/eyal050/guardianlink/_git/guardian-link"
+          git push ado --mirror
+        env:
+          ADO_MIRROR_PAT: ${{ secrets.ADO_MIRROR_PAT }}
