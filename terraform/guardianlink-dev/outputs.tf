@@ -14,3 +14,38 @@ output "postgres_notifier_password" {
   sensitive   = true
   description = "Postgres notifier app-user password (sensitive)."
 }
+
+output "app_insights_name" {
+  value       = azurerm_application_insights.main.name
+  description = "App Insights component name for release annotations."
+}
+
+output "resource_group_name" {
+  value       = azurerm_resource_group.main.name
+  description = "Workload resource group name for CLI commands."
+}
+
+output "func_telemetry_writer_name" {
+  value       = azurerm_linux_function_app.telemetry_writer.name
+  description = "Telemetry writer Function App name."
+}
+
+output "func_crash_classifier_name" {
+  value       = azurerm_linux_function_app.crash_classifier.name
+  description = "Crash classifier Function App name."
+}
+
+output "func_notifier_name" {
+  value       = azurerm_linux_function_app.notifier.name
+  description = "Notifier Function App name."
+}
+
+output "func_metrics_name" {
+  value       = azurerm_linux_function_app.metrics.name
+  description = "Metrics Function App name."
+}
+
+output "container_app_ml_stub_name" {
+  value       = azurerm_container_app.ml_stub.name
+  description = "ML stub Container App name."
+}
