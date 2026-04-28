@@ -10,6 +10,8 @@ trigger:
 
 variables:
   - group: guardianlink-backend
+  - name: TERRAFORM_VERSION
+    value: 1.9.8
 
 stages:
   - stage: validate
@@ -20,10 +22,13 @@ stages:
         pool:
           vmImage: ubuntu-latest
         steps:
-          - task: TerraformInstaller@1
+          - bash: |
+              set -euo pipefail
+              curl -fsSL "https://releases.hashicorp.com/terraform/$(TERRAFORM_VERSION)/terraform_$(TERRAFORM_VERSION)_linux_amd64.zip" -o terraform.zip
+              unzip -o terraform.zip
+              sudo mv terraform /usr/local/bin/terraform
+              terraform version
             displayName: Install Terraform
-            inputs:
-              terraformVersion: latest
 
           - task: AzureCLI@2
             displayName: Terraform init (no backend) + validate
