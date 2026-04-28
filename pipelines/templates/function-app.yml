@@ -14,7 +14,7 @@ stages:
     displayName: Build & Test
     jobs:
       - job: build_test
-        displayName: Install, lint, test
+        displayName: Install and test
         pool:
           vmImage: ubuntu-latest
         steps:
@@ -64,10 +64,11 @@ stages:
                     cd ${{ parameters.appDir }}
                     pip install -r requirements.txt -q
                     zip -r "$(Build.ArtifactStagingDirectory)/function.zip" . \
-                      --exclude "*.pyc" \
-                      --exclude "__pycache__/*" \
-                      --exclude "tests/*" \
-                      --exclude "requirements-dev.txt"
+                      -x "*.pyc" \
+                      -x "*/__pycache__/*" \
+                      -x "*__pycache__*" \
+                      -x "*/tests/*" \
+                      -x "requirements-dev.txt"
                   displayName: Package function app
 
                 - task: AzureCLI@2
@@ -121,16 +122,12 @@ stages:
                         --app "$(APP_INSIGHTS_NAME)" \
                         --resource-group "$(RESOURCE_GROUP_NAME)" \
                         --query id -o tsv)
+                      ANNO_ID=$(uuidgen)
+                      ANNO_TIME=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
                       az rest \
                         --method post \
                         --uri "https://management.azure.com${APP_RES_ID}/Annotations?api-version=2015-05-01" \
-                        --body "{
-                          \"Id\": \"$(uuidgen)\",
-                          \"AnnotationName\": \"deploy-$(FUNCTION_APP_NAME)\",
-                          \"EventTime\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\",
-                          \"Category\": \"Deployment\",
-                          \"Properties\": \"{\\\"ReleaseVersion\\\":\\\"$(DEPLOY_VERSION)\\\"}\"
-                        }"
+                        --body "{\"Id\":\"${ANNO_ID}\",\"AnnotationName\":\"deploy-$(FUNCTION_APP_NAME)\",\"EventTime\":\"${ANNO_TIME}\",\"Category\":\"Deployment\",\"Properties\":\"{\\\"ReleaseVersion\\\":\\\"$(DEPLOY_VERSION)\\\"}\"}"
 
   - stage: deploy_prod
     displayName: Deploy to Prod (stub)
