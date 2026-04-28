@@ -161,7 +161,7 @@ def classify_crash(event: func.EventHubEvent) -> None:
 
     if confidence < _CONFIDENCE_THRESHOLD:
         logging.info(
-            "crash_below_threshold device_id=%s confidence=%.3f threshold=%.2f",
+            "crash_below_threshold device_id=%s confidence=%.3f threshold=%.4f",
             device_id, confidence, _CONFIDENCE_THRESHOLD,
         )
         return
