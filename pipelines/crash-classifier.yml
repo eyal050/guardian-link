@@ -1,0 +1,20 @@
+# pipelines/crash-classifier.yml
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - apps/crash-classifier/**
+      - pipelines/crash-classifier.yml
+      - pipelines/templates/function-app.yml
+
+variables:
+  - group: guardianlink-infra-outputs
+  - name: FUNCTION_APP_NAME
+    value: $(FUNC_CRASH_CLASSIFIER_NAME)
+
+stages:
+  - template: templates/function-app.yml
+    parameters:
+      appDir: apps/crash-classifier
