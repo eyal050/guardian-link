@@ -247,13 +247,13 @@ Change lines 37-53 from:
 ```hcl
 variable "budget_contact_email" {
   type        = string
-  default     = "eyal050@gmail.com"
+  default     = "<your-email>"
   description = "Email that receives budget threshold alerts."
 }
 
 variable "owner" {
   type        = string
-  default     = "eyal050@gmail.com"
+  default     = "<your-email>"
   description = "Used in the owner tag."
 }
 
@@ -306,7 +306,7 @@ Current:
 # Azure Monitor scheduled-query alerts on the producer side.
 #
 # Three rules, one action group with a single email receiver to
-# eyal050@gmail.com. The KQL for each rule is sourced from
+# <your-email>. The KQL for each rule is sourced from
 # alerts/queries/*.kql so the queries can be reviewed as standalone
 # Kusto.
 ```
@@ -338,7 +338,7 @@ git commit -m "chore: remove hardcoded email from alerts.tf header comment"
 Current lines 4-5:
 ```
 deployed to `rg-guardianlink-dev`. Notifications go by email to
-`eyal050@gmail.com`.
+`<your-email>`.
 ```
 
 Replace with:
@@ -490,9 +490,9 @@ ADO → Pipelines → Library → `guardianlink-backend`
 | Variable | Value | Secret? |
 |---|---|---|
 | `TF_VAR_billing_scope_id` | Full MCA scope path (from your notes) | Yes |
-| `TF_VAR_alert_email` | `eyal050@gmail.com` | No |
-| `TF_VAR_budget_contact_email` | `eyal050@gmail.com` | No |
-| `TF_VAR_owner` | `eyal050@gmail.com` | No |
+| `TF_VAR_alert_email` | `<your-email>` | No |
+| `TF_VAR_budget_contact_email` | `<your-email>` | No |
+| `TF_VAR_owner` | `<your-email>` | No |
 | `TF_VAR_workload_subscription_id` | `<WORKLOAD_SUBSCRIPTION_ID>` | Yes |
 | `ADO_ORG` | `eyal050` | No |
 | `ADO_PROJECT_ID` | `<ADO_PROJECT_ID>` | No |
@@ -754,7 +754,7 @@ Expected: no output.
 - [ ] **Step 4: Verify no hardcoded email defaults remain**
 
 ```bash
-git ls-files | xargs grep "default.*eyal050@gmail.com"
+git ls-files | xargs grep "default.*<your-email>"
 ```
 
 Expected: no output.
