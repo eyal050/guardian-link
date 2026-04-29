@@ -36,18 +36,18 @@ variable "management_group_id" {
 
 variable "budget_contact_email" {
   type        = string
-  default     = "eyal050@gmail.com"
+  default     = ""
   description = "Email that receives budget threshold alerts."
 }
 
 variable "owner" {
   type        = string
-  default     = "eyal050@gmail.com"
+  default     = ""
   description = "Used in the owner tag."
 }
 
 variable "workload_subscription_id" {
   type        = string
-  default     = "WORKLOAD_SUBSCRIPTION_ID_PLACEHOLDER"
+  default     = ""
   description = "Subscription ID of the existing workload subscription. Replaces azurerm_subscription.main for pipelines that lack billing alias permissions."
 }
