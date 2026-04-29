@@ -30,7 +30,7 @@ Create a replacements file and run `git filter-repo --replace-text`. Strings to 
 | `<INVOICE_SECTION_NAME>` | `<INVOICE_SECTION_NAME>` |
 | `<ADO_PROJECT_ID>` | `<ADO_PROJECT_ID>` |
 
-Email addresses (`eyal050@gmail.com`) are left in history — they are the author's public GitHub email and appear in commit metadata; scrubbing them would be disproportionate effort with minimal benefit.
+Email addresses (`<your-email>`) are left in history — they are the author's public GitHub email and appear in commit metadata; scrubbing them would be disproportionate effort with minimal benefit.
 
 ### Pass 2 — Remove `tf-lab-boilerplate/` entirely
 
@@ -54,8 +54,8 @@ Changes to the working tree after history is clean:
 
 ### 3b. `terraform/guardianlink-dev/variables.tf` — email defaults
 
-- Change default for `alert_email` from `"eyal050@gmail.com"` → `""`
-- Change default for `budget_contact_email` from `"eyal050@gmail.com"` → `""`
+- Change default for `alert_email` from `"<your-email>"` → `""`
+- Change default for `budget_contact_email` from `"<your-email>"` → `""`
 - These will be injected by the pipeline via the Variable Group (see §4)
 
 ### 3c. `terraform/guardianlink-dev/alerts.tf` — email comment
@@ -64,7 +64,7 @@ Changes to the working tree after history is clean:
 
 ### 3d. `alerts/README.md`
 
-- Replace `eyal050@gmail.com` with `<your-alert-email>`
+- Replace `<your-email>` with `<your-alert-email>`
 - `docs/superpowers/` plan and spec files are left untouched — they are historical design records, not instructional templates
 
 ### 3e. `pipelines/infra.yml` — ADO Project ID
@@ -84,8 +84,8 @@ Add the following variables to the existing Variable Group before triggering the
 | Variable | Value | Secret? |
 |---|---|---|
 | `TF_VAR_billing_scope_id` | Full MCA scope path | Yes (mark secret) |
-| `TF_VAR_alert_email` | `eyal050@gmail.com` | No |
-| `TF_VAR_budget_contact_email` | `eyal050@gmail.com` | No |
+| `TF_VAR_alert_email` | `<your-email>` | No |
+| `TF_VAR_budget_contact_email` | `<your-email>` | No |
 | `ADO_PROJECT_ID` | `<ADO_PROJECT_ID>` | No |
 
 Update `pipelines/infra.yml` to map `TF_VAR_billing_scope_id` into the Terraform environment wherever `terraform plan` and `terraform apply` are invoked.
@@ -140,6 +140,6 @@ Nothing is considered done until all of these pass:
 2. `git log --all -- tf-lab-boilerplate/` returns nothing
 3. `git ls-files terraform/guardianlink-dev/terraform.tfvars` returns nothing
 4. ADO infra pipeline `plan` stage passes with VG-injected values
-5. `grep -r "eyal050@gmail.com" $(git ls-files)` returns only author-contextual references (commit metadata is exempt), not hardcoded Terraform defaults or instructional text
+5. `grep -r "<your-email>" $(git ls-files)` returns only author-contextual references (commit metadata is exempt), not hardcoded Terraform defaults or instructional text
 6. Re-run the full secret-pattern grep from the initial scan against the cleaned repo
 7. README renders correctly on GitHub (check headers, code blocks, links)
