@@ -4,7 +4,7 @@
 
 1. **Environment = subscription.** Each (application, environment) pair gets its own Azure subscription, provisioned by its own Terraform stack. Blast radius stops at the subscription boundary; there is no cross-env IAM to get wrong.
 2. **Flat root per stack.** No `modules/` + `envs/` split for this project. The resource count per stack does not yet justify the abstraction. If two stacks grow enough duplicated HCL to make modules worthwhile, refactor then — not speculatively.
-3. **Remote state, externally bootstrapped.** A shared state storage account (`TF_STATE_STORAGE_ACCOUNT` in `TF_STATE_RESOURCE_GROUP`, in a parent subscription) exists outside this repo. Each stack keys into it as `{application}-{environment}`. That storage account is not managed by guardianlink Terraform.
+3. **Remote state, externally bootstrapped.** A shared state storage account (`<your-tf-state-storage-account>` in `<your-tf-state-resource-group>`, in a parent subscription) exists outside this repo. Each stack keys into it as `{application}-{environment}`. That storage account is not managed by guardianlink Terraform.
 4. **Two providers per stack.** The default `azurerm` provider points at the parent subscription (via `ARM_SUBSCRIPTION_ID` in the environment) and is used only to create the child subscription. An aliased `azurerm.workload` provider targets the child sub. Every workload resource explicitly sets `provider = azurerm.workload` — forgetting that line lands the resource in the parent sub, which is the main footgun of this model.
 5. **No secrets in code or tfvars.** Once a Key Vault exists, secrets live there; Terraform references them by secret ID. Outputs that carry credentials are `sensitive = true`.
 6. **Apply is deliberate.** Even in dev, `terraform apply` is a manual step; pipelines (when added) run `plan` automatically but gate `apply` on approval.
@@ -29,15 +29,14 @@ terraform/
 
 A `guardianlink-prod/` stack, if built, sits alongside with the same shape and a separate subscription. Stacks do not read each other's state.
 
-`tf-lab-boilerplate/` at the repo root is the generic new-subscription starter this stack was derived from. It is not deployed.
 
 ## State backend (external, not managed here)
 
 Each stack's `versions.tf` declares an empty `backend "azurerm" {}` block; the config is injected at `terraform init` time via `-backend-config` flags so the same TF can point at different state blobs per stack. `run.sh` encapsulates that:
 
 ```
-resource_group_name  = "TF_STATE_RESOURCE_GROUP"
-storage_account_name = "TF_STATE_STORAGE_ACCOUNT"
+resource_group_name  = "<your-tf-state-resource-group>"
+storage_account_name = "<your-tf-state-storage-account>"
 container_name       = "tfstate"
 key                  = "{application}-{environment}"    # e.g. guardianlink-dev
 ```

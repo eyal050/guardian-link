@@ -6,12 +6,13 @@ set -euo pipefail
 # Parent subscription the default azurerm provider authenticates against
 # (to create the child subscription). Child-sub resources use the aliased
 # provider and do not read this.
-export ARM_SUBSCRIPTION_ID="PARENT_SUBSCRIPTION_ID"
+export ARM_SUBSCRIPTION_ID="${ARM_SUBSCRIPTION_ID:?Set ARM_SUBSCRIPTION_ID to your parent subscription ID}"
 
 # State backend — pre-existing, outside this repo's Terraform.
-BACKEND_RESOURCE_GROUP="TF_STATE_RESOURCE_GROUP"
-BACKEND_STORAGE_ACCOUNT="TF_STATE_STORAGE_ACCOUNT"
-BACKEND_CONTAINER_NAME="tfstate"
+# Export TF_BACKEND_RESOURCE_GROUP, TF_BACKEND_STORAGE_ACCOUNT before running.
+BACKEND_RESOURCE_GROUP="${TF_BACKEND_RESOURCE_GROUP:?Set TF_BACKEND_RESOURCE_GROUP}"
+BACKEND_STORAGE_ACCOUNT="${TF_BACKEND_STORAGE_ACCOUNT:?Set TF_BACKEND_STORAGE_ACCOUNT}"
+BACKEND_CONTAINER_NAME="${TF_BACKEND_CONTAINER:-tfstate}"
 # State key matches the stack directory name so renaming one forces renaming
 # the other — prevents silent divergence between code and state location.
 BACKEND_KEY="guardianlink-dev"
