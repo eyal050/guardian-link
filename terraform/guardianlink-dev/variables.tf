@@ -51,3 +51,9 @@ variable "workload_subscription_id" {
   default     = ""
   description = "Subscription ID of the existing workload subscription. Replaces azurerm_subscription.main for pipelines that lack billing alias permissions."
 }
+
+variable "alert_email" {
+  type        = string
+  default     = ""
+  description = "Email address for Azure Monitor alert notifications."
+}
