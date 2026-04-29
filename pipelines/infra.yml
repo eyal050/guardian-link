@@ -93,7 +93,13 @@ stages:
               scriptType: bash
               scriptLocation: inlineScript
               addSpnToEnvironment: true
-              inlineScript: |
+            env:
+              TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
+              TF_VAR_alert_email: $(TF_VAR_alert_email)
+              TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
+              TF_VAR_owner: $(TF_VAR_owner)
+              TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
+            inlineScript: |
                 cd terraform/guardianlink-dev
                 export ARM_CLIENT_ID=$servicePrincipalId
                 export ARM_TENANT_ID=$tenantId
@@ -156,7 +162,13 @@ stages:
                     scriptType: bash
                     scriptLocation: inlineScript
                     addSpnToEnvironment: true
-                    inlineScript: |
+                  env:
+                    TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
+                    TF_VAR_alert_email: $(TF_VAR_alert_email)
+                    TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
+                    TF_VAR_owner: $(TF_VAR_owner)
+                    TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
+                  inlineScript: |
                       cd terraform/guardianlink-dev
                       export ARM_CLIENT_ID=$servicePrincipalId
                       export ARM_TENANT_ID=$tenantId
@@ -177,6 +189,8 @@ stages:
                   condition: succeeded()
                   env:
                     ADO_SETUP_PAT: $(ADO_SETUP_PAT)
+                    ADO_ORG: $(ADO_ORG)
+                    ADO_PROJECT_ID: $(ADO_PROJECT_ID)
                   inputs:
                     azureSubscription: guardianlink-azure
                     scriptType: bash
@@ -208,9 +222,9 @@ stages:
                       FUNC_MET=$(echo "$TF_JSON"       | jq -r '.func_metrics_name.value')
                       CA_ML=$(echo "$TF_JSON"          | jq -r '.container_app_ml_stub_name.value')
 
-                      ADO_ORG="eyal050"
+                      ADO_ORG="${ADO_ORG}"
                       ADO_PROJECT="guardianlink"
-                      ADO_PROJECT_ID="ADO_PROJECT_ID_PLACEHOLDER"
+                      ADO_PROJECT_ID="${ADO_PROJECT_ID}"
                       VG_NAME="guardianlink-infra-outputs"
                       API="https://dev.azure.com/${ADO_ORG}/${ADO_PROJECT}/_apis/distributedtask"
 
