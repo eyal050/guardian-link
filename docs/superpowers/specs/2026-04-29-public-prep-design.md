@@ -24,11 +24,11 @@ Create a replacements file and run `git filter-repo --replace-text`. Strings to 
 
 | Actual value | Placeholder |
 |---|---|
-| `BILLING_SCOPE_ID_PLACEHOLDER` | `<BILLING_SCOPE_ID>` |
-| `BILLING_ACCOUNT_NAME_PLACEHOLDER` | `<BILLING_ACCOUNT_NAME>` |
-| `BILLING_PROFILE_NAME_PLACEHOLDER` | `<BILLING_PROFILE_NAME>` |
-| `INVOICE_SECTION_NAME_PLACEHOLDER` | `<INVOICE_SECTION_NAME>` |
-| `ADO_PROJECT_ID_PLACEHOLDER` | `<ADO_PROJECT_ID>` |
+| `<BILLING_SCOPE_ID>` | `<BILLING_SCOPE_ID>` |
+| `<BILLING_ACCOUNT_NAME>` | `<BILLING_ACCOUNT_NAME>` |
+| `<BILLING_PROFILE_NAME>` | `<BILLING_PROFILE_NAME>` |
+| `<INVOICE_SECTION_NAME>` | `<INVOICE_SECTION_NAME>` |
+| `<ADO_PROJECT_ID>` | `<ADO_PROJECT_ID>` |
 
 Email addresses (`eyal050@gmail.com`) are left in history — they are the author's public GitHub email and appear in commit metadata; scrubbing them would be disproportionate effort with minimal benefit.
 
@@ -69,7 +69,7 @@ Changes to the working tree after history is clean:
 
 ### 3e. `pipelines/infra.yml` — ADO Project ID
 
-- Replace the hardcoded `ADO_PROJECT_ID="ADO_PROJECT_ID_PREFIX-..."` (line 213) with `ADO_PROJECT_ID="$(ADO_PROJECT_ID)"` (sourced from Variable Group)
+- Replace the hardcoded `ADO_PROJECT_ID="<ADO_PROJECT_ID>"` (line 213) with `ADO_PROJECT_ID="$(ADO_PROJECT_ID)"` (sourced from Variable Group)
 
 ### 3f. `tf-lab-boilerplate/` — deleted from working tree
 
@@ -86,7 +86,7 @@ Add the following variables to the existing Variable Group before triggering the
 | `TF_VAR_billing_scope_id` | Full MCA scope path | Yes (mark secret) |
 | `TF_VAR_alert_email` | `eyal050@gmail.com` | No |
 | `TF_VAR_budget_contact_email` | `eyal050@gmail.com` | No |
-| `ADO_PROJECT_ID` | `ADO_PROJECT_ID_PLACEHOLDER` | No |
+| `ADO_PROJECT_ID` | `<ADO_PROJECT_ID>` | No |
 
 Update `pipelines/infra.yml` to map `TF_VAR_billing_scope_id` into the Terraform environment wherever `terraform plan` and `terraform apply` are invoked.
 
@@ -136,7 +136,7 @@ Add `LICENSE` file at repo root with standard MIT text, year 2026, copyright hol
 
 Nothing is considered done until all of these pass:
 
-1. `git log -p | grep -E "BILLING_ACCOUNT_PREFIX|BILLING_PROFILE_PREFIX|INVOICE_SECTION_PREFIX|ADO_PROJECT_ID_PREFIX"` returns nothing
+1. `git log -p | grep -E "<BILLING_ID_PATTERNS>"` returns nothing
 2. `git log --all -- tf-lab-boilerplate/` returns nothing
 3. `git ls-files terraform/guardianlink-dev/terraform.tfvars` returns nothing
 4. ADO infra pipeline `plan` stage passes with VG-injected values

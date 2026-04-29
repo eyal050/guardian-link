@@ -14,7 +14,7 @@
 
 Two items discovered while reading files that weren't in the spec:
 
-- `terraform/guardianlink-dev/variables.tf` line 51: `workload_subscription_id` has `default = "WORKLOAD_SUBSCRIPTION_ID_PLACEHOLDER"` — a real subscription ID. Added to the replace-text pass and cleared in Task 5.
+- `terraform/guardianlink-dev/variables.tf` line 51: `workload_subscription_id` has `default = "<WORKLOAD_SUBSCRIPTION_ID>"` — a real subscription ID. Added to the replace-text pass and cleared in Task 5.
 - `pipelines/infra.yml` line 211: `ADO_ORG="eyal050"` — ADO organisation name hardcoded. Moved to VG in Task 8/9.
 
 ---
@@ -94,12 +94,12 @@ Expected: a version string, e.g. `git filter-repo version 2.45.0`
 Create `replacements.txt` at the repo root. Order matters — the full billing scope path must appear before its component sub-strings:
 
 ```
-BILLING_SCOPE_ID_PLACEHOLDER==>BILLING_SCOPE_ID_PLACEHOLDER
-BILLING_ACCOUNT_NAME_PLACEHOLDER==>BILLING_ACCOUNT_NAME_PLACEHOLDER
-BILLING_PROFILE_NAME_PLACEHOLDER==>BILLING_PROFILE_NAME_PLACEHOLDER
-INVOICE_SECTION_NAME_PLACEHOLDER==>INVOICE_SECTION_NAME_PLACEHOLDER
-ADO_PROJECT_ID_PLACEHOLDER==>ADO_PROJECT_ID_PLACEHOLDER
-WORKLOAD_SUBSCRIPTION_ID_PLACEHOLDER==>WORKLOAD_SUBSCRIPTION_ID_PLACEHOLDER
+<BILLING_SCOPE_ID>==>BILLING_SCOPE_ID_PLACEHOLDER
+<BILLING_ACCOUNT_NAME>==>BILLING_ACCOUNT_NAME_PLACEHOLDER
+<BILLING_PROFILE_NAME>==>BILLING_PROFILE_NAME_PLACEHOLDER
+<INVOICE_SECTION_NAME>==>INVOICE_SECTION_NAME_PLACEHOLDER
+<ADO_PROJECT_ID>==>ADO_PROJECT_ID_PLACEHOLDER
+<WORKLOAD_SUBSCRIPTION_ID>==>WORKLOAD_SUBSCRIPTION_ID_PLACEHOLDER
 ```
 
 - [ ] **Step 3: Run the replace-text pass**
@@ -113,7 +113,7 @@ Expected: progress lines like `Parsed 60 commits`, no errors.
 - [ ] **Step 4: Verify history is clean**
 
 ```bash
-git log -p | grep -E "BILLING_ACCOUNT_PREFIX|BILLING_PROFILE_PREFIX|INVOICE_SECTION_PREFIX|ADO_PROJECT_ID_PREFIX|WORKLOAD_SUB_PREFIX"
+git log -p | grep -E "<BILLING_ID_PATTERNS>"
 ```
 
 Expected: no output.
@@ -259,7 +259,7 @@ variable "owner" {
 
 variable "workload_subscription_id" {
   type        = string
-  default     = "WORKLOAD_SUBSCRIPTION_ID_PLACEHOLDER"
+  default     = "<WORKLOAD_SUBSCRIPTION_ID>"
   description = "Subscription ID of the existing workload subscription. Replaces azurerm_subscription.main for pipelines that lack billing alias permissions."
 }
 ```
@@ -455,7 +455,7 @@ And inside the `inlineScript:`, replace the hardcoded lines (around line 211-213
 ```bash
 ADO_ORG="eyal050"
 ADO_PROJECT="guardianlink"
-ADO_PROJECT_ID="ADO_PROJECT_ID_PLACEHOLDER"
+ADO_PROJECT_ID="<ADO_PROJECT_ID>"
 ```
 
 With:
@@ -493,9 +493,9 @@ ADO → Pipelines → Library → `guardianlink-backend`
 | `TF_VAR_alert_email` | `eyal050@gmail.com` | No |
 | `TF_VAR_budget_contact_email` | `eyal050@gmail.com` | No |
 | `TF_VAR_owner` | `eyal050@gmail.com` | No |
-| `TF_VAR_workload_subscription_id` | `WORKLOAD_SUBSCRIPTION_ID_PLACEHOLDER` | Yes |
+| `TF_VAR_workload_subscription_id` | `<WORKLOAD_SUBSCRIPTION_ID>` | Yes |
 | `ADO_ORG` | `eyal050` | No |
-| `ADO_PROJECT_ID` | `ADO_PROJECT_ID_PLACEHOLDER` | No |
+| `ADO_PROJECT_ID` | `<ADO_PROJECT_ID>` | No |
 
 - [ ] **Step 3: Save the Variable Group**
 
@@ -730,7 +730,7 @@ git commit -m "docs: rewrite README for public visibility (interviewer + candida
 - [ ] **Step 1: Verify no sensitive strings remain in history**
 
 ```bash
-git log -p | grep -E "BILLING_ACCOUNT_PREFIX|BILLING_PROFILE_PREFIX|INVOICE_SECTION_PREFIX|ADO_PROJECT_ID_PREFIX|WORKLOAD_SUB_PREFIX"
+git log -p | grep -E "<BILLING_ID_PATTERNS>"
 ```
 
 Expected: no output.
@@ -762,7 +762,7 @@ Expected: no output.
 - [ ] **Step 5: Verify no hardcoded account IDs remain in pipeline YAML**
 
 ```bash
-grep -n "eyal050\b\|ADO_PROJECT_ID_PREFIX\|WORKLOAD_SUB_PREFIX" pipelines/infra.yml
+grep -n "eyal050\b\|<ADO_PROJECT_ID>\|<WORKLOAD_SUBSCRIPTION_ID>" pipelines/infra.yml
 ```
 
 Expected: no output.
