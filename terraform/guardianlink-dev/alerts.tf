@@ -1,9 +1,8 @@
 # Azure Monitor scheduled-query alerts on the producer side.
 #
-# Three rules, one action group with a single email receiver to
-# eyal050@gmail.com. The KQL for each rule is sourced from
-# alerts/queries/*.kql so the queries can be reviewed as standalone
-# Kusto.
+# Three rules, one action group with a single email receiver (var.alert_email).
+# The KQL for each rule is sourced from alerts/queries/*.kql so the queries
+# can be reviewed as standalone Kusto.
 #
 # Two rules scope to App Insights (`message_sent` rows from the
 # simulator), one scopes to LAW (`AzureDiagnostics` -> IoT Hub
