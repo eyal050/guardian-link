@@ -134,7 +134,20 @@ Alternatively, run locally:
 
 ```bash
 cd terraform/guardianlink-dev
+
+# Parent subscription (holds the TF state backend; NOT the workload sub)
+export ARM_SUBSCRIPTION_ID="<parent-subscription-id>"
+
+# TF state backend (pre-existing storage account in the parent sub)
+export TF_BACKEND_RESOURCE_GROUP="<rg-name>"
+export TF_BACKEND_STORAGE_ACCOUNT="<storage-account-name>"
+
+# Workload variables
+export TF_VAR_workload_subscription_id="<child-subscription-id>"
 export TF_VAR_billing_scope_id="/providers/Microsoft.Billing/billingAccounts/..."
+export TF_VAR_alert_email="<your-email>"
+export TF_VAR_budget_contact_email="<your-email>"
+
 ./run.sh plan
 ./run.sh apply
 ```
