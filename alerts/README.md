@@ -2,7 +2,7 @@
 
 Three Azure Monitor scheduled-query alert rules + one action group, all
 deployed to `rg-guardianlink-dev`. Notifications go by email to
-`eyal050@gmail.com`.
+the address in `var.alert_email` (set via the ADO Variable Group).
 
 Queries live as `.kql` files under `queries/`. The alert rules
 themselves are defined in Terraform (`terraform/guardianlink-dev/alerts.tf`)
