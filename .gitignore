@@ -6,7 +6,6 @@ scripts/.failure-state/
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
-!terraform/guardianlink-dev/terraform.tfvars
 .terraform.lock.hcl
 crash.log
 crash.*.log
