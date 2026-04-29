@@ -36,7 +36,7 @@ resource "azurerm_monitor_action_group" "email" {
 
   email_receiver {
     name          = "eyal-primary"
-    email_address = "eyal050@gmail.com"
+    email_address = var.alert_email
   }
 
   tags = local.tags
