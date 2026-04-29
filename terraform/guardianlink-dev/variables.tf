@@ -1,25 +1,30 @@
 variable "application_name" {
   type        = string
+  default     = "guardianlink"
   description = "Workload name, used in resource names and tags."
 }
 
 variable "environment_name" {
   type        = string
+  default     = "dev"
   description = "Environment name (e.g. dev, prod)."
 }
 
 variable "primary_location" {
   type        = string
+  default     = "westeurope"
   description = "Azure region for all workload resources. Must have a mapping in locals.location_short_map."
 }
 
 variable "new_subscription_name" {
   type        = string
+  default     = "guardianlink-dev"
   description = "Display name for the new Azure subscription."
 }
 
 variable "budget_amount" {
   type        = number
+  default     = 100
   description = "Monthly budget amount in the billing account currency."
 }
 
