@@ -33,7 +33,11 @@ provider "azurerm" {
 provider "azurerm" {
   alias           = "workload"
   subscription_id = var.workload_subscription_id
-  features {}
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
+    }
+  }
 }
 
 # Grafana provider — reads GRAFANA_URL and GRAFANA_AUTH from environment.
