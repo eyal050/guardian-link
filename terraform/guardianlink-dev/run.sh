@@ -35,11 +35,13 @@ COMMAND="${1:-}"
 if [ "$COMMAND" = "apply" ]; then
   shift  # remaining args (e.g. -auto-approve) forwarded to both applies
 
-  # Stage 1: create Grafana Azure resource and Admin role assignment so we can
+  # Stage 1: create Grafana Azure resource and all role assignments so we can
   # obtain the endpoint URL and a valid API token for Stage 2.
   terraform apply \
     -target=azurerm_dashboard_grafana.main \
     -target=azurerm_role_assignment.grafana_admin \
+    -target=azurerm_role_assignment.grafana_viewer \
+    -target=azurerm_role_assignment.grafana_mon_reader \
     "$@"
 
   # Azure role-assignment propagation takes a few seconds.
