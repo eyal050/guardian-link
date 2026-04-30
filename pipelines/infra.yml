@@ -57,6 +57,9 @@ stages:
                 terraform init -backend=false -input=false
                 terraform fmt -check -recursive
                 terraform validate
+            env:
+              GRAFANA_URL: "https://placeholder.grafana.invalid"
+              GRAFANA_AUTH: "placeholder"
 
   - stage: plan_dev
     displayName: Plan Dev
@@ -107,13 +110,19 @@ stages:
                   -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
                   -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
                   -input=false
-                terraform plan -out="$(Build.ArtifactStagingDirectory)/tfplan" -input=false
+                terraform plan \
+                  -exclude=grafana_data_source.azure_monitor \
+                  -exclude=grafana_dashboard.crash_pipeline \
+                  -out="$(Build.ArtifactStagingDirectory)/tfplan" \
+                  -input=false
             env:
               TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
               TF_VAR_alert_email: $(TF_VAR_alert_email)
               TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
               TF_VAR_owner: $(TF_VAR_owner)
               TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
+              GRAFANA_URL: "https://placeholder.grafana.invalid"
+              GRAFANA_AUTH: "placeholder"
           - publish: $(Build.ArtifactStagingDirectory)/tfplan
             artifact: tfplan-dev
             displayName: Publish plan artifact
@@ -185,6 +194,48 @@ stages:
                     TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
 
                 - task: AzureCLI@2
+                  displayName: Bootstrap Grafana provider resources
+                  condition: succeeded()
+                  inputs:
+                    azureSubscription: guardianlink-azure
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    addSpnToEnvironment: true
+                    inlineScript: |
+                      set -euo pipefail
+                      cd terraform/guardianlink-dev
+                      export ARM_CLIENT_ID=$servicePrincipalId
+                      export ARM_TENANT_ID=$tenantId
+                      export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
+                      export ARM_USE_OIDC=true
+                      export ARM_OIDC_TOKEN=$idToken
+                      terraform init \
+                        -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
+                        -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
+                        -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
+                        -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
+                        -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
+                        -input=false -reconfigure
+                      export GRAFANA_URL
+                      GRAFANA_URL=$(terraform output -raw grafana_endpoint)
+                      export GRAFANA_AUTH
+                      GRAFANA_AUTH=$(az account get-access-token \
+                        --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
+                        --query accessToken -o tsv)
+                      echo "Waiting 30s for role assignment propagation..."
+                      sleep 30
+                      terraform apply -auto-approve \
+                        -target=grafana_data_source.azure_monitor \
+                        -target=grafana_dashboard.crash_pipeline \
+                        -input=false
+                  env:
+                    TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
+                    TF_VAR_alert_email: $(TF_VAR_alert_email)
+                    TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
+                    TF_VAR_owner: $(TF_VAR_owner)
+                    TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
+
+                - task: AzureCLI@2
                   displayName: Update guardianlink-infra-outputs variable group
                   condition: succeeded()
                   env:
@@ -221,6 +272,7 @@ stages:
                       FUNC_NOT=$(echo "$TF_JSON"       | jq -r '.func_notifier_name.value')
                       FUNC_MET=$(echo "$TF_JSON"       | jq -r '.func_metrics_name.value')
                       CA_ML=$(echo "$TF_JSON"          | jq -r '.container_app_ml_stub_name.value')
+                      GRAFANA_ENDPOINT=$(echo "$TF_JSON"   | jq -r '.grafana_endpoint.value')
 
                       ADO_ORG="${ADO_ORG}"
                       ADO_PROJECT="guardianlink"
@@ -234,6 +286,7 @@ stages:
                         --arg tw "$FUNC_TW" --arg cc "$FUNC_CC" \
                         --arg not "$FUNC_NOT" --arg met "$FUNC_MET" \
                         --arg ca "$CA_ML" \
+                        --arg grafana_ep "$GRAFANA_ENDPOINT" \
                         '{
                           RESOURCE_GROUP_NAME:        {value: $rg},
                           APP_INSIGHTS_NAME:          {value: $appi},
@@ -243,7 +296,8 @@ stages:
                           FUNC_CRASH_CLASSIFIER_NAME: {value: $cc},
                           FUNC_NOTIFIER_NAME:         {value: $not},
                           FUNC_METRICS_NAME:          {value: $met},
-                          CONTAINER_APP_ML_STUB_NAME: {value: $ca}
+                          CONTAINER_APP_ML_STUB_NAME: {value: $ca},
+                          GRAFANA_ENDPOINT:           {value: $grafana_ep}
                         }')
 
                       PROJECT_REF=$(jq -n \
