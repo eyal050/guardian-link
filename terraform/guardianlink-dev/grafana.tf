@@ -1,7 +1,7 @@
 resource "azurerm_dashboard_grafana" "main" {
   provider = azurerm.workload
 
-  name                  = "amg-${local.name_prefix}"
+  name                  = "amg-gl-${var.environment_name}-${local.location_short}"
   resource_group_name   = azurerm_resource_group.main.name
   location              = var.primary_location
   sku                   = "Standard"
