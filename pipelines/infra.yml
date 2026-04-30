@@ -64,9 +64,11 @@ stages:
               GRAFANA_AUTH: "placeholder"
 
   - stage: plan_dev
-    displayName: Plan Dev
+    displayName: Plan Dev (review)
     dependsOn: validate
     condition: succeeded()
+    variables:
+      - group: guardianlink-infra-outputs
     jobs:
       - job: plan
         displayName: terraform plan
@@ -99,6 +101,7 @@ stages:
               scriptLocation: inlineScript
               addSpnToEnvironment: true
               inlineScript: |
+                set -euo pipefail
                 cd terraform/guardianlink-dev
                 export ARM_CLIENT_ID=$servicePrincipalId
                 export ARM_TENANT_ID=$tenantId
@@ -112,23 +115,24 @@ stages:
                   -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
                   -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
                   -input=false
-                terraform plan \
-                  -exclude=grafana_data_source.azure_monitor \
-                  -exclude=grafana_dashboard.crash_pipeline \
-                  -out="$(Build.ArtifactStagingDirectory)/tfplan" \
-                  -input=false
+                # Grafana provider needs a real URL when Grafana resources exist in state
+                # (so it can refresh them). When GRAFANA_ENDPOINT is set (previous deploy),
+                # use it. On first deploy (empty state) the placeholder is fine — there
+                # are no existing Grafana resources to refresh.
+                GRAFANA_URL="${GRAFANA_ENDPOINT:-https://placeholder.grafana.invalid}"
+                export GRAFANA_URL
+                export GRAFANA_AUTH
+                GRAFANA_AUTH=$(az account get-access-token \
+                  --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
+                  --query accessToken -o tsv 2>/dev/null || echo "placeholder")
+                terraform plan -input=false
             env:
               TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
               TF_VAR_alert_email: $(TF_VAR_alert_email)
               TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
               TF_VAR_owner: $(TF_VAR_owner)
               TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
-              # Grafana provider requires non-empty URL/auth for provider init during plan.
-              GRAFANA_URL: "https://placeholder.grafana.invalid"
-              GRAFANA_AUTH: "placeholder"
-          - publish: $(Build.ArtifactStagingDirectory)/tfplan
-            artifact: tfplan-dev
-            displayName: Publish plan artifact
+              GRAFANA_ENDPOINT: $(GRAFANA_ENDPOINT)
 
   - stage: apply_dev
     displayName: Apply Dev
@@ -136,7 +140,7 @@ stages:
     condition: succeeded()
     jobs:
       - deployment: apply
-        displayName: terraform apply + update infra-outputs
+        displayName: terraform apply (two-stage) + update infra-outputs
         environment: dev
         pool:
           vmImage: ubuntu-latest
@@ -164,41 +168,44 @@ stages:
                   env:
                     TERRAFORM_VERSION: $(TERRAFORM_VERSION)
 
-                - download: current
-                  artifact: tfplan-dev
-
                 - task: AzureCLI@2
-                  displayName: Terraform apply
+                  displayName: "Stage 1 — create Azure Grafana resource + role assignments"
                   inputs:
                     azureSubscription: guardianlink-azure
                     scriptType: bash
                     scriptLocation: inlineScript
                     addSpnToEnvironment: true
                     inlineScript: |
-                        cd terraform/guardianlink-dev
-                        export ARM_CLIENT_ID=$servicePrincipalId
-                        export ARM_TENANT_ID=$tenantId
-                        export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
-                        export ARM_USE_OIDC=true
-                        export ARM_OIDC_TOKEN=$idToken
-                        terraform init \
-                          -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
-                          -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
-                          -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
-                          -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
-                          -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
-                          -input=false
-                        terraform apply -input=false "$(Pipeline.Workspace)/tfplan-dev/tfplan"
+                      set -euo pipefail
+                      cd terraform/guardianlink-dev
+                      export ARM_CLIENT_ID=$servicePrincipalId
+                      export ARM_TENANT_ID=$tenantId
+                      export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
+                      export ARM_USE_OIDC=true
+                      export ARM_OIDC_TOKEN=$idToken
+                      terraform init \
+                        -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
+                        -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
+                        -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
+                        -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
+                        -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
+                        -input=false
+                      terraform apply -auto-approve -input=false \
+                        -target=azurerm_dashboard_grafana.main \
+                        -target=azurerm_role_assignment.grafana_admin \
+                        -target=azurerm_role_assignment.grafana_viewer \
+                        -target=azurerm_role_assignment.grafana_mon_reader
                   env:
                     TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
                     TF_VAR_alert_email: $(TF_VAR_alert_email)
                     TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
                     TF_VAR_owner: $(TF_VAR_owner)
                     TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
+                    GRAFANA_URL: "https://placeholder.grafana.invalid"
+                    GRAFANA_AUTH: "placeholder"
 
                 - task: AzureCLI@2
-                  displayName: Bootstrap Grafana provider resources
-                  condition: succeeded()
+                  displayName: "Stage 2 — full apply (all resources including Grafana provider)"
                   inputs:
                     azureSubscription: guardianlink-azure
                     scriptType: bash
@@ -219,18 +226,15 @@ stages:
                         -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
                         -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
                         -input=false -reconfigure
+                      echo "Waiting 30s for role assignment propagation..."
+                      sleep 30
                       export GRAFANA_URL
                       GRAFANA_URL=$(terraform output -raw grafana_endpoint)
                       export GRAFANA_AUTH
                       GRAFANA_AUTH=$(az account get-access-token \
                         --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
                         --query accessToken -o tsv)
-                      echo "Waiting 30s for role assignment propagation..."
-                      sleep 30
-                      terraform apply -auto-approve \
-                        -target=grafana_data_source.azure_monitor \
-                        -target=grafana_dashboard.crash_pipeline \
-                        -input=false
+                      terraform apply -auto-approve -input=false
                   env:
                     TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
                     TF_VAR_alert_email: $(TF_VAR_alert_email)
