@@ -57,6 +57,8 @@ stages:
                 terraform init -backend=false -input=false
                 terraform fmt -check -recursive
                 terraform validate
+            # Grafana provider requires non-empty URL/auth even during validate.
+            # Placeholder values satisfy provider init without real credentials.
             env:
               GRAFANA_URL: "https://placeholder.grafana.invalid"
               GRAFANA_AUTH: "placeholder"
@@ -121,6 +123,7 @@ stages:
               TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
               TF_VAR_owner: $(TF_VAR_owner)
               TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
+              # Grafana provider requires non-empty URL/auth for provider init during plan.
               GRAFANA_URL: "https://placeholder.grafana.invalid"
               GRAFANA_AUTH: "placeholder"
           - publish: $(Build.ArtifactStagingDirectory)/tfplan
