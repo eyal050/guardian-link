@@ -337,9 +337,42 @@ stages:
                         echo "Variable group ${VG_NAME} created."
                       fi
 
+  - stage: trigger_app_pipelines
+    displayName: Trigger App Pipelines
+    dependsOn: apply_dev
+    condition: succeeded()
+    jobs:
+      - job: trigger
+        displayName: Queue app pipelines to populate environment
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          # Requires ADO_SETUP_PAT to have "Build (read and execute)" scope
+          # in addition to its Variable Groups scope.
+          - bash: |
+              set -euo pipefail
+              API="https://dev.azure.com/${ADO_ORG}/guardianlink/_apis/pipelines"
+              PAYLOAD='{"resources":{"repositories":{"self":{"refName":"refs/heads/main"}}}}'
+              # Pipeline IDs: 7=telemetry-writer, 8=crash-classifier,
+              #               9=notifier, 10=metrics, 11=ml-stub
+              for pid in 7 8 9 10 11; do
+                STATUS=$(curl -so /dev/null -w "%{http_code}" \
+                  -u ":${ADO_SETUP_PAT}" \
+                  -X POST -H "Content-Type: application/json" \
+                  -d "$PAYLOAD" \
+                  "${API}/${pid}/runs?api-version=7.0")
+                echo "Pipeline ${pid}: HTTP ${STATUS}"
+                [ "$STATUS" = "200" ] || [ "$STATUS" = "201" ] || \
+                  { echo "ERROR: unexpected status ${STATUS} for pipeline ${pid}"; exit 1; }
+              done
+            displayName: Trigger app pipelines by ID
+            env:
+              ADO_SETUP_PAT: $(ADO_SETUP_PAT)
+              ADO_ORG: $(ADO_ORG)
+
   - stage: plan_prod
     displayName: Plan Prod (stub)
-    dependsOn: apply_dev
+    dependsOn: trigger_app_pipelines
     condition: succeeded()
     jobs:
       - job: stub
