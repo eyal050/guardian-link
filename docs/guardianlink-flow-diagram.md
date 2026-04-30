@@ -3,6 +3,7 @@
 This diagram shows the GuardianLink product flow from device telemetry ingestion through crash confirmation and emergency notification. Each group shows the high-level architectural layer, while each node names the lower-level service or app instance.
 
 ```mermaid
+%%{init: {'theme': 'default', 'themeVariables': {'fontSize': '18px', 'fontFamily': 'trebuchet ms, verdana, arial'}, 'flowchart': {'nodeSpacing': 60, 'rankSpacing': 100, 'padding': 20}}}%%
 flowchart LR
     device["BLE device / mobile app<br/>Instance: guardian device or phone app"]:::deviceNode
 
