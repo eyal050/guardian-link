@@ -10,6 +10,10 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.6"
     }
+    grafana = {
+      source  = "grafana/grafana"
+      version = "~> 3.0"
+    }
   }
 
   backend "azurerm" {
@@ -30,4 +34,11 @@ provider "azurerm" {
   alias           = "workload"
   subscription_id = var.workload_subscription_id
   features {}
+}
+
+# Grafana provider — reads GRAFANA_URL and GRAFANA_AUTH from environment.
+# These are injected by run.sh (local) or the ADO bootstrap task (pipeline).
+# During plan/validate stages, placeholder env vars keep provider init happy.
+provider "grafana" {
+  alias = "managed"
 }
