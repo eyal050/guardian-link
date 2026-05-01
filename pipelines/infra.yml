@@ -194,7 +194,8 @@ stages:
                         -target=azurerm_dashboard_grafana.main \
                         -target=azurerm_role_assignment.grafana_admin \
                         -target=azurerm_role_assignment.grafana_viewer \
-                        -target=azurerm_role_assignment.grafana_mon_reader
+                        -target=azurerm_role_assignment.grafana_mon_reader \
+                        -target=azurerm_container_registry.main
                   env:
                     TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
                     TF_VAR_alert_email: $(TF_VAR_alert_email)
@@ -203,6 +204,72 @@ stages:
                     TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
                     GRAFANA_URL: "https://placeholder.grafana.invalid"
                     GRAFANA_AUTH: "placeholder"
+
+                - task: AzureCLI@2
+                  displayName: "Build ml-stub image + import orphaned resources into state"
+                  inputs:
+                    azureSubscription: guardianlink-azure
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    addSpnToEnvironment: true
+                    inlineScript: |
+                      set -euo pipefail
+                      cd terraform/guardianlink-dev
+                      export ARM_CLIENT_ID=$servicePrincipalId
+                      export ARM_TENANT_ID=$tenantId
+                      export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
+                      export ARM_USE_OIDC=true
+                      export ARM_OIDC_TOKEN=$idToken
+                      terraform init \
+                        -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
+                        -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
+                        -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
+                        -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
+                        -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
+                        -input=false -reconfigure
+
+                      # Build ml-stub image if not already in ACR.
+                      # This must happen before Stage 2 so the container app can pull it.
+                      ACR_NAME=$(terraform output -raw acr_name)
+                      if ! az acr repository show --name "$ACR_NAME" --image "ml-stub:latest" &>/dev/null; then
+                        echo "Building ml-stub image..."
+                        az acr build --registry "$ACR_NAME" --image ml-stub:latest ../../apps/ml-stub/
+                      else
+                        echo "ml-stub:latest already in ACR, skipping build."
+                      fi
+
+                      # Azure Managed Grafana auto-provisions an "Azure Monitor" data source
+                      # (UID azure-monitor-oob) on creation. Import it so Stage 2 can update
+                      # it in-place instead of hitting a 409.
+                      export GRAFANA_URL
+                      GRAFANA_URL=$(terraform output -raw grafana_endpoint)
+                      export GRAFANA_AUTH
+                      GRAFANA_AUTH=$(az account get-access-token \
+                        --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
+                        --query accessToken -o tsv)
+                      if ! terraform state list | grep -q 'grafana_data_source.azure_monitor'; then
+                        echo "Importing grafana_data_source.azure_monitor..."
+                        terraform import grafana_data_source.azure_monitor azure-monitor-oob
+                      else
+                        echo "grafana_data_source.azure_monitor already in state."
+                      fi
+
+                      # Import container app if it exists in Azure but not in state
+                      # (left by a previous failed apply). A failed-state container app
+                      # gets imported then updated by Stage 2's apply.
+                      CA_ID="/subscriptions/$(TF_VAR_workload_subscription_id)/resourceGroups/rg-guardianlink-dev/providers/Microsoft.App/containerApps/ca-guardianlink-dev-weu-ml-stub"
+                      if ! terraform state list | grep -q 'azurerm_container_app.ml_stub'; then
+                        if az containerapp show --ids "$CA_ID" &>/dev/null; then
+                          echo "Importing azurerm_container_app.ml_stub..."
+                          terraform import azurerm_container_app.ml_stub "$CA_ID"
+                        fi
+                      fi
+                  env:
+                    TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
+                    TF_VAR_alert_email: $(TF_VAR_alert_email)
+                    TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
+                    TF_VAR_owner: $(TF_VAR_owner)
+                    TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
 
                 - task: AzureCLI@2
                   displayName: "Stage 2 — full apply (all resources including Grafana provider)"
