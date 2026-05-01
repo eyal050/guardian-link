@@ -1,4 +1,6 @@
 # pipelines/infra.yml
+name: '$(Build.BuildId) - $(Date:yyyyMMdd) - $(Rev:r)'
+
 trigger:
   branches:
     include:
@@ -418,8 +420,8 @@ stages:
         pool:
           vmImage: ubuntu-latest
         steps:
-          # Requires ADO_SETUP_PAT to have "Build (read and execute)" scope
-          # in addition to its Variable Groups scope.
+          # Uses System.AccessToken (the pipeline's own OAuth token) which has
+          # Build.Queue rights within the project — no PAT required.
           - bash: |
               set -euo pipefail
               API="https://dev.azure.com/${ADO_ORG}/guardianlink/_apis/pipelines"
@@ -428,7 +430,7 @@ stages:
               #               9=notifier, 10=metrics, 11=ml-stub
               for pid in 7 8 9 10 11; do
                 STATUS=$(curl -so /dev/null -w "%{http_code}" \
-                  -u ":${ADO_SETUP_PAT}" \
+                  -u ":${SYSTEM_ACCESSTOKEN}" \
                   -X POST -H "Content-Type: application/json" \
                   -d "$PAYLOAD" \
                   "${API}/${pid}/runs?api-version=7.0")
@@ -438,7 +440,7 @@ stages:
               done
             displayName: Trigger app pipelines by ID
             env:
-              ADO_SETUP_PAT: $(ADO_SETUP_PAT)
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
               ADO_ORG: $(ADO_ORG)
 
   - stage: plan_prod
