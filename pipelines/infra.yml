@@ -243,13 +243,27 @@ stages:
                       # Azure Managed Grafana auto-provisions an "Azure Monitor" data source
                       # (UID azure-monitor-oob) on creation. Import it so Stage 2 can update
                       # it in-place instead of hitting a 409.
+                      # terraform init must see GRAFANA_URL before providers are locked;
+                      # set it here (from state output) then reinit so the provider is
+                      # initialised with real creds before state show/import run.
                       export GRAFANA_URL
                       GRAFANA_URL=$(terraform output -raw grafana_endpoint)
                       export GRAFANA_AUTH
                       GRAFANA_AUTH=$(az account get-access-token \
                         --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
                         --query accessToken -o tsv)
-                      if ! terraform state list | grep -q 'grafana_data_source.azure_monitor'; then
+                      # Re-init with real Grafana creds so provider schema includes grafana resources.
+                      terraform init \
+                        -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
+                        -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
+                        -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
+                        -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
+                        -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
+                        -input=false -reconfigure
+                      # Use state show (direct lookup, exits 1 if absent) rather than
+                      # state list | grep which can silently miss resources when the
+                      # Grafana provider wasn't fully initialised on the first init pass.
+                      if ! terraform state show grafana_data_source.azure_monitor > /dev/null 2>&1; then
                         echo "Importing grafana_data_source.azure_monitor..."
                         terraform import grafana_data_source.azure_monitor azure-monitor-oob
                       else
@@ -257,14 +271,15 @@ stages:
                       fi
 
                       # Import container app if it exists in Azure but not in state
-                      # (left by a previous failed apply). A failed-state container app
-                      # gets imported then updated by Stage 2's apply.
+                      # (left by a previous failed apply).
                       CA_ID="/subscriptions/$(TF_VAR_workload_subscription_id)/resourceGroups/rg-guardianlink-dev/providers/Microsoft.App/containerApps/ca-guardianlink-dev-weu-ml-stub"
-                      if ! terraform state list | grep -q 'azurerm_container_app.ml_stub'; then
+                      if ! terraform state show azurerm_container_app.ml_stub > /dev/null 2>&1; then
                         if az containerapp show --ids "$CA_ID" &>/dev/null; then
                           echo "Importing azurerm_container_app.ml_stub..."
                           terraform import azurerm_container_app.ml_stub "$CA_ID"
                         fi
+                      else
+                        echo "azurerm_container_app.ml_stub already in state."
                       fi
                   env:
                     TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
