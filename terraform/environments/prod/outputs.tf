@@ -54,3 +54,8 @@ output "grafana_endpoint" {
   value       = azurerm_dashboard_grafana.main.endpoint
   description = "Azure Managed Grafana HTTPS endpoint."
 }
+
+output "subscription_id" {
+  value       = azurerm_subscription.main.subscription_id
+  description = "ID of the prod subscription created by Stage 0."
+}
