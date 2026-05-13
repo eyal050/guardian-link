@@ -173,6 +173,15 @@ stages:
                 ADO_SETUP_PAT: $(ADO_SETUP_PAT)
                 ADO_ORG: $(ADO_ORG)
 
+    - template: templates/terraform-env.yml
+      parameters:
+        environment: prod
+        tfDir: terraform/environments/prod
+        variableGroup: guardianlink-prod
+        adoEnvironment: prod
+        stateKey: guardianlink-prod
+        dependsOn: [post_apply_dev]
+
   - ${{ if eq(parameters.action, 'destroy') }}:
     - stage: destroy_dev
       displayName: Destroy Dev
@@ -222,6 +231,67 @@ stages:
                         GRAFANA_AUTH=$(az account get-access-token \
                           --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
                           --query accessToken -o tsv 2>/dev/null || echo "placeholder")
+                        terraform destroy -auto-approve -input=false
+                    env:
+                      TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
+                      TF_VAR_alert_email: $(TF_VAR_alert_email)
+                      TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
+                      TF_VAR_owner: $(TF_VAR_owner)
+                      TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
+                      GRAFANA_ENDPOINT: $(GRAFANA_ENDPOINT)
+
+    - stage: destroy_prod
+      displayName: Destroy Prod
+      dependsOn: destroy_dev
+      condition: succeeded()
+      variables:
+        - group: guardianlink-backend
+        - group: guardianlink-prod
+      jobs:
+        - deployment: destroy
+          displayName: terraform destroy (prod)
+          environment: prod
+          pool:
+            vmImage: ubuntu-latest
+          strategy:
+            runOnce:
+              deploy:
+                steps:
+                  - checkout: self
+
+                  - template: templates/steps/install-terraform.yml
+
+                  - task: AzureCLI@2
+                    displayName: terraform destroy
+                    inputs:
+                      azureSubscription: guardianlink-azure
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      addSpnToEnvironment: true
+                      inlineScript: |
+                        set -euo pipefail
+                        cd terraform/environments/prod
+                        export ARM_CLIENT_ID=$servicePrincipalId
+                        export ARM_TENANT_ID=$tenantId
+                        export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
+                        export ARM_USE_OIDC=true
+                        export ARM_OIDC_TOKEN=$idToken
+                        terraform init \
+                          -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
+                          -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
+                          -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
+                          -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
+                          -backend-config="key=guardianlink-prod" \
+                          -input=false
+                        export GRAFANA_URL="${GRAFANA_ENDPOINT:-https://placeholder.grafana.invalid}"
+                        export GRAFANA_AUTH
+                        GRAFANA_AUTH=$(az account get-access-token \
+                          --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
+                          --query accessToken -o tsv 2>/dev/null || echo "placeholder")
+                        # Exclude azurerm_subscription.main from destroy — keeping the
+                        # subscription disabled rather than deleted preserves state-key
+                        # validity if prod is later re-deployed.
+                        terraform state rm azurerm_subscription.main || true
                         terraform destroy -auto-approve -input=false
                     env:
                       TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
