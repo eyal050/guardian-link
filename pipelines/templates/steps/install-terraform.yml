@@ -1,0 +1,20 @@
+# pipelines/templates/steps/install-terraform.yml
+# Installs the pinned Terraform version into /usr/local/bin.
+steps:
+  - bash: |
+      set -euo pipefail
+      INSTALL_DIR="${AGENT_TEMPDIRECTORY}/terraform-install"
+      rm -rf "$INSTALL_DIR"
+      mkdir -p "$INSTALL_DIR"
+
+      curl -fsSL \
+        "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
+        -o "$INSTALL_DIR/terraform.zip"
+
+      unzip -o "$INSTALL_DIR/terraform.zip" -d "$INSTALL_DIR"
+      sudo install -m 0755 "$INSTALL_DIR/terraform" /usr/local/bin/terraform
+
+      terraform version
+    displayName: Install Terraform
+    env:
+      TERRAFORM_VERSION: $(TERRAFORM_VERSION)
