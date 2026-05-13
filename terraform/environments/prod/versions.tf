@@ -32,7 +32,7 @@ provider "azurerm" {
 # Every workload resource MUST set provider = azurerm.workload.
 provider "azurerm" {
   alias           = "workload"
-  subscription_id = var.workload_subscription_id
+  subscription_id = local.workload_subscription_id
   features {
     resource_group {
       prevent_deletion_if_contains_resources = false
