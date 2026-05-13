@@ -13,8 +13,8 @@ export ARM_SUBSCRIPTION_ID="${ARM_SUBSCRIPTION_ID:?Set ARM_SUBSCRIPTION_ID to yo
 BACKEND_RESOURCE_GROUP="${TF_BACKEND_RESOURCE_GROUP:?Set TF_BACKEND_RESOURCE_GROUP}"
 BACKEND_STORAGE_ACCOUNT="${TF_BACKEND_STORAGE_ACCOUNT:?Set TF_BACKEND_STORAGE_ACCOUNT}"
 BACKEND_CONTAINER_NAME="${TF_BACKEND_CONTAINER:-tfstate}"
-# State key matches the stack directory name so renaming one forces renaming
-# the other — prevents silent divergence between code and state location.
+# State key is fixed at guardianlink-dev to preserve existing remote state.
+# Changing this would orphan the deployed resources from Terraform management.
 BACKEND_KEY="guardianlink-dev"
 
 terraform init \
