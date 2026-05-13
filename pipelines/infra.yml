@@ -16,7 +16,7 @@ trigger:
       - main
   paths:
     include:
-      - terraform/guardianlink-dev/**
+      - terraform/environments/dev/**
       - pipelines/infra.yml
 
 variables:
@@ -60,7 +60,7 @@ stages:
                 scriptLocation: inlineScript
                 addSpnToEnvironment: true
                 inlineScript: |
-                  cd terraform/guardianlink-dev
+                  cd terraform/environments/dev
                   export ARM_CLIENT_ID=$servicePrincipalId
                   export ARM_TENANT_ID=$tenantId
                   export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
@@ -114,7 +114,7 @@ stages:
                 addSpnToEnvironment: true
                 inlineScript: |
                   set -euo pipefail
-                  cd terraform/guardianlink-dev
+                  cd terraform/environments/dev
                   export ARM_CLIENT_ID=$servicePrincipalId
                   export ARM_TENANT_ID=$tenantId
                   export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
@@ -189,7 +189,7 @@ stages:
                       addSpnToEnvironment: true
                       inlineScript: |
                         set -euo pipefail
-                        cd terraform/guardianlink-dev
+                        cd terraform/environments/dev
                         export ARM_CLIENT_ID=$servicePrincipalId
                         export ARM_TENANT_ID=$tenantId
                         export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
@@ -226,7 +226,7 @@ stages:
                       addSpnToEnvironment: true
                       inlineScript: |
                         set -euo pipefail
-                        cd terraform/guardianlink-dev
+                        cd terraform/environments/dev
                         export ARM_CLIENT_ID=$servicePrincipalId
                         export ARM_TENANT_ID=$tenantId
                         export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
@@ -307,7 +307,7 @@ stages:
                       addSpnToEnvironment: true
                       inlineScript: |
                         set -euo pipefail
-                        cd terraform/guardianlink-dev
+                        cd terraform/environments/dev
                         export ARM_CLIENT_ID=$servicePrincipalId
                         export ARM_TENANT_ID=$tenantId
                         export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
@@ -350,7 +350,7 @@ stages:
                       addSpnToEnvironment: true
                       inlineScript: |
                         set -euo pipefail
-                        cd terraform/guardianlink-dev
+                        cd terraform/environments/dev
                         export ARM_CLIENT_ID=$servicePrincipalId
                         export ARM_TENANT_ID=$tenantId
                         export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
@@ -545,7 +545,7 @@ stages:
                       addSpnToEnvironment: true
                       inlineScript: |
                         set -euo pipefail
-                        cd terraform/guardianlink-dev
+                        cd terraform/environments/dev
                         export ARM_CLIENT_ID=$servicePrincipalId
                         export ARM_TENANT_ID=$tenantId
                         export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
