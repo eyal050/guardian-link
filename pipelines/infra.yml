@@ -17,96 +17,46 @@ trigger:
   paths:
     include:
       - terraform/environments/dev/**
+      - terraform/environments/prod/**
       - pipelines/infra.yml
+      - pipelines/templates/**
 
 variables:
-  - group: guardianlink-backend
   - name: TERRAFORM_VERSION
     value: 1.9.8
 
 stages:
   - ${{ if eq(parameters.action, 'apply') }}:
-    - stage: validate
-      displayName: Validate
-      jobs:
-        - job: validate
-          displayName: fmt-check + validate
-          pool:
-            vmImage: ubuntu-latest
-          steps:
-            - bash: |
-                set -euo pipefail
-                INSTALL_DIR="${AGENT_TEMPDIRECTORY}/terraform-install"
-                rm -rf "$INSTALL_DIR"
-                mkdir -p "$INSTALL_DIR"
+    - template: templates/terraform-env.yml
+      parameters:
+        environment: dev
+        tfDir: terraform/environments/dev
+        variableGroup: guardianlink-dev
+        adoEnvironment: dev
+        stateKey: guardianlink-dev
 
-                curl -fsSL \
-                  "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
-                  -o "$INSTALL_DIR/terraform.zip"
-
-                unzip -o "$INSTALL_DIR/terraform.zip" -d "$INSTALL_DIR"
-                sudo install -m 0755 "$INSTALL_DIR/terraform" /usr/local/bin/terraform
-
-                terraform version
-              displayName: Install Terraform
-              env:
-                TERRAFORM_VERSION: $(TERRAFORM_VERSION)
-
-            - task: AzureCLI@2
-              displayName: Terraform init (no backend) + validate
-              inputs:
-                azureSubscription: guardianlink-azure
-                scriptType: bash
-                scriptLocation: inlineScript
-                addSpnToEnvironment: true
-                inlineScript: |
-                  cd terraform/environments/dev
-                  export ARM_CLIENT_ID=$servicePrincipalId
-                  export ARM_TENANT_ID=$tenantId
-                  export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
-                  export ARM_USE_OIDC=true
-                  export ARM_OIDC_TOKEN=$idToken
-                  terraform init -backend=false -input=false
-                  terraform fmt -check -recursive
-                  terraform validate
-              # Grafana provider requires non-empty URL/auth even during validate.
-              # Placeholder values satisfy provider init without real credentials.
-              env:
-                GRAFANA_URL: "https://placeholder.grafana.invalid"
-                GRAFANA_AUTH: "placeholder"
-
-    - stage: plan_dev
-      displayName: Plan Dev (review)
-      dependsOn: validate
+    - stage: post_apply_dev
+      displayName: Post-apply Dev
+      dependsOn: apply_dev
       condition: succeeded()
       variables:
+        - group: guardianlink-backend
+        - group: guardianlink-dev
         - group: guardianlink-infra-outputs
       jobs:
-        - job: plan
-          displayName: terraform plan
+        - job: publish_and_trigger
+          displayName: Publish outputs + trigger app pipelines
           pool:
             vmImage: ubuntu-latest
           steps:
-            - bash: |
-                set -euo pipefail
-                INSTALL_DIR="${AGENT_TEMPDIRECTORY}/terraform-install"
-                rm -rf "$INSTALL_DIR"
-                mkdir -p "$INSTALL_DIR"
-
-                curl -fsSL \
-                  "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
-                  -o "$INSTALL_DIR/terraform.zip"
-
-                unzip -o "$INSTALL_DIR/terraform.zip" -d "$INSTALL_DIR"
-                sudo install -m 0755 "$INSTALL_DIR/terraform" /usr/local/bin/terraform
-
-                terraform version
-              displayName: Install Terraform
-              env:
-                TERRAFORM_VERSION: $(TERRAFORM_VERSION)
+            - template: templates/steps/install-terraform.yml
 
             - task: AzureCLI@2
-              displayName: Terraform init + plan
+              displayName: Update guardianlink-infra-outputs variable group
+              env:
+                ADO_SETUP_PAT: $(ADO_SETUP_PAT)
+                ADO_ORG: $(ADO_ORG)
+                ADO_PROJECT_ID: $(ADO_PROJECT_ID)
               inputs:
                 azureSubscription: guardianlink-azure
                 scriptType: bash
@@ -125,326 +75,78 @@ stages:
                     -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
                     -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
                     -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
-                    -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
-                    -input=false
-                  # Grafana provider needs a real URL when Grafana resources exist in state
-                  # (so it can refresh them). When GRAFANA_ENDPOINT is set (previous deploy),
-                  # use it. On first deploy (empty state) the placeholder is fine — there
-                  # are no existing Grafana resources to refresh.
-                  GRAFANA_URL="${GRAFANA_ENDPOINT:-https://placeholder.grafana.invalid}"
-                  export GRAFANA_URL
-                  export GRAFANA_AUTH
-                  GRAFANA_AUTH=$(az account get-access-token \
-                    --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
-                    --query accessToken -o tsv 2>/dev/null || echo "placeholder")
-                  terraform plan -input=false
-              env:
-                TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
-                TF_VAR_alert_email: $(TF_VAR_alert_email)
-                TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
-                TF_VAR_owner: $(TF_VAR_owner)
-                TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
-                GRAFANA_ENDPOINT: $(GRAFANA_ENDPOINT)
+                    -backend-config="key=guardianlink-dev" \
+                    -input=false -reconfigure
+                  TF_JSON=$(terraform output -json)
+                  RG=$(echo "$TF_JSON"             | jq -r '.resource_group_name.value')
+                  APPI=$(echo "$TF_JSON"           | jq -r '.app_insights_name.value')
+                  ACR_SERVER=$(echo "$TF_JSON"     | jq -r '.acr_login_server.value')
+                  ACR_NAME=$(echo "$TF_JSON"       | jq -r '.acr_name.value')
+                  FUNC_TW=$(echo "$TF_JSON"        | jq -r '.func_telemetry_writer_name.value')
+                  FUNC_CC=$(echo "$TF_JSON"        | jq -r '.func_crash_classifier_name.value')
+                  FUNC_NOT=$(echo "$TF_JSON"       | jq -r '.func_notifier_name.value')
+                  FUNC_MET=$(echo "$TF_JSON"       | jq -r '.func_metrics_name.value')
+                  CA_ML=$(echo "$TF_JSON"          | jq -r '.container_app_ml_stub_name.value')
+                  GRAFANA_ENDPOINT=$(echo "$TF_JSON"   | jq -r '.grafana_endpoint.value')
 
-    - stage: apply_dev
-      displayName: Apply Dev
-      dependsOn: plan_dev
-      condition: succeeded()
-      jobs:
-        - deployment: apply
-          displayName: terraform apply (two-stage) + update infra-outputs
-          environment: dev
-          pool:
-            vmImage: ubuntu-latest
-          strategy:
-            runOnce:
-              deploy:
-                steps:
-                  - checkout: self
+                  ADO_PROJECT="guardianlink"
+                  VG_NAME="guardianlink-infra-outputs"
+                  API="https://dev.azure.com/${ADO_ORG}/${ADO_PROJECT}/_apis/distributedtask"
 
-                  - bash: |
-                      set -euo pipefail
-                      INSTALL_DIR="${AGENT_TEMPDIRECTORY}/terraform-install"
-                      rm -rf "$INSTALL_DIR"
-                      mkdir -p "$INSTALL_DIR"
+                  VARIABLES=$(jq -n \
+                    --arg rg "$RG" --arg appi "$APPI" \
+                    --arg acr_s "$ACR_SERVER" --arg acr_n "$ACR_NAME" \
+                    --arg tw "$FUNC_TW" --arg cc "$FUNC_CC" \
+                    --arg not "$FUNC_NOT" --arg met "$FUNC_MET" \
+                    --arg ca "$CA_ML" \
+                    --arg grafana_ep "$GRAFANA_ENDPOINT" \
+                    '{
+                      RESOURCE_GROUP_NAME:        {value: $rg},
+                      APP_INSIGHTS_NAME:          {value: $appi},
+                      ACR_LOGIN_SERVER:           {value: $acr_s},
+                      ACR_NAME:                   {value: $acr_n},
+                      FUNC_TELEMETRY_WRITER_NAME: {value: $tw},
+                      FUNC_CRASH_CLASSIFIER_NAME: {value: $cc},
+                      FUNC_NOTIFIER_NAME:         {value: $not},
+                      FUNC_METRICS_NAME:          {value: $met},
+                      CONTAINER_APP_ML_STUB_NAME: {value: $ca},
+                      GRAFANA_ENDPOINT:           {value: $grafana_ep}
+                    }')
 
-                      curl -fsSL \
-                        "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
-                        -o "$INSTALL_DIR/terraform.zip"
+                  PROJECT_REF=$(jq -n \
+                    --arg vgname "$VG_NAME" \
+                    --arg proj_id "$ADO_PROJECT_ID" \
+                    --arg proj_name "$ADO_PROJECT" \
+                    '[{name: $vgname, projectReference: {id: $proj_id, name: $proj_name}}]')
 
-                      unzip -o "$INSTALL_DIR/terraform.zip" -d "$INSTALL_DIR"
-                      sudo install -m 0755 "$INSTALL_DIR/terraform" /usr/local/bin/terraform
+                  VG_RESP=$(curl -sf -u ":${ADO_SETUP_PAT}" \
+                    "${API}/variablegroups?groupName=${VG_NAME}&api-version=7.0")
+                  VG_ID=$(echo "$VG_RESP" | jq -r '.value[0].id // empty')
 
-                      terraform version
-                    displayName: Install Terraform
-                    env:
-                      TERRAFORM_VERSION: $(TERRAFORM_VERSION)
+                  if [ -n "$VG_ID" ]; then
+                    PAYLOAD=$(jq -n \
+                      --argjson id "$VG_ID" --arg name "$VG_NAME" \
+                      --argjson vars "$VARIABLES" \
+                      --argjson refs "$PROJECT_REF" \
+                      '{id: $id, name: $name, type: "Vsts", variables: $vars, variableGroupProjectReferences: $refs}')
+                    curl -sf -u ":${ADO_SETUP_PAT}" \
+                      -X PUT -H "Content-Type: application/json" \
+                      -d "$PAYLOAD" \
+                      "${API}/variablegroups/${VG_ID}?api-version=7.0" > /dev/null
+                    echo "Variable group ${VG_NAME} updated (id=${VG_ID})."
+                  else
+                    PAYLOAD=$(jq -n \
+                      --arg name "$VG_NAME" \
+                      --argjson vars "$VARIABLES" \
+                      --argjson refs "$PROJECT_REF" \
+                      '{name: $name, type: "Vsts", variables: $vars, variableGroupProjectReferences: $refs}')
+                    curl -sf -u ":${ADO_SETUP_PAT}" \
+                      -X POST -H "Content-Type: application/json" \
+                      -d "$PAYLOAD" \
+                      "${API}/variablegroups?api-version=7.0" > /dev/null
+                    echo "Variable group ${VG_NAME} created."
+                  fi
 
-                  - task: AzureCLI@2
-                    displayName: "Stage 1 — create Azure Grafana resource + role assignments"
-                    inputs:
-                      azureSubscription: guardianlink-azure
-                      scriptType: bash
-                      scriptLocation: inlineScript
-                      addSpnToEnvironment: true
-                      inlineScript: |
-                        set -euo pipefail
-                        cd terraform/environments/dev
-                        export ARM_CLIENT_ID=$servicePrincipalId
-                        export ARM_TENANT_ID=$tenantId
-                        export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
-                        export ARM_USE_OIDC=true
-                        export ARM_OIDC_TOKEN=$idToken
-                        terraform init \
-                          -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
-                          -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
-                          -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
-                          -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
-                          -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
-                          -input=false
-                        terraform apply -auto-approve -input=false \
-                          -target=azurerm_dashboard_grafana.main \
-                          -target=azurerm_role_assignment.grafana_admin \
-                          -target=azurerm_role_assignment.grafana_viewer \
-                          -target=azurerm_role_assignment.grafana_mon_reader \
-                          -target=azurerm_container_registry.main
-                    env:
-                      TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
-                      TF_VAR_alert_email: $(TF_VAR_alert_email)
-                      TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
-                      TF_VAR_owner: $(TF_VAR_owner)
-                      TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
-                      GRAFANA_URL: "https://placeholder.grafana.invalid"
-                      GRAFANA_AUTH: "placeholder"
-
-                  - task: AzureCLI@2
-                    displayName: "Build ml-stub image + import orphaned resources into state"
-                    inputs:
-                      azureSubscription: guardianlink-azure
-                      scriptType: bash
-                      scriptLocation: inlineScript
-                      addSpnToEnvironment: true
-                      inlineScript: |
-                        set -euo pipefail
-                        cd terraform/environments/dev
-                        export ARM_CLIENT_ID=$servicePrincipalId
-                        export ARM_TENANT_ID=$tenantId
-                        export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
-                        export ARM_USE_OIDC=true
-                        export ARM_OIDC_TOKEN=$idToken
-                        terraform init \
-                          -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
-                          -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
-                          -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
-                          -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
-                          -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
-                          -input=false -reconfigure
-
-                        # Build ml-stub image if not already in ACR.
-                        # This must happen before Stage 2 so the container app can pull it.
-                        ACR_NAME=$(terraform output -raw acr_name)
-                        if ! az acr repository show --name "$ACR_NAME" --image "ml-stub:latest" &>/dev/null; then
-                          echo "Building ml-stub image..."
-                          az acr build --registry "$ACR_NAME" --image ml-stub:latest ../../apps/ml-stub/
-                        else
-                          echo "ml-stub:latest already in ACR, skipping build."
-                        fi
-
-                        # Azure Managed Grafana auto-provisions an "Azure Monitor" data source
-                        # (UID azure-monitor-oob) on creation. Import it so Stage 2 can update
-                        # it in-place instead of hitting a 409.
-                        # terraform init must see GRAFANA_URL before providers are locked;
-                        # set it here (from state output) then reinit so the provider is
-                        # initialised with real creds before state show/import run.
-                        export GRAFANA_URL
-                        GRAFANA_URL=$(terraform output -raw grafana_endpoint)
-                        export GRAFANA_AUTH
-                        GRAFANA_AUTH=$(az account get-access-token \
-                          --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
-                          --query accessToken -o tsv)
-                        # Re-init with real Grafana creds so provider schema includes grafana resources.
-                        terraform init \
-                          -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
-                          -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
-                          -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
-                          -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
-                          -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
-                          -input=false -reconfigure
-                        # Use state show (direct lookup, exits 1 if absent) rather than
-                        # state list | grep which can silently miss resources when the
-                        # Grafana provider wasn't fully initialised on the first init pass.
-                        if ! terraform state show grafana_data_source.azure_monitor > /dev/null 2>&1; then
-                          echo "Importing grafana_data_source.azure_monitor..."
-                          terraform import grafana_data_source.azure_monitor azure-monitor-oob
-                        else
-                          echo "grafana_data_source.azure_monitor already in state."
-                        fi
-
-                        # Import container app if it exists in Azure but not in state
-                        # (left by a previous failed apply).
-                        CA_ID="/subscriptions/$(TF_VAR_workload_subscription_id)/resourceGroups/rg-guardianlink-dev/providers/Microsoft.App/containerApps/ca-guardianlink-dev-weu-ml-stub"
-                        if ! terraform state show azurerm_container_app.ml_stub > /dev/null 2>&1; then
-                          if az containerapp show --ids "$CA_ID" &>/dev/null; then
-                            echo "Importing azurerm_container_app.ml_stub..."
-                            terraform import azurerm_container_app.ml_stub "$CA_ID"
-                          fi
-                        else
-                          echo "azurerm_container_app.ml_stub already in state."
-                        fi
-                    env:
-                      TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
-                      TF_VAR_alert_email: $(TF_VAR_alert_email)
-                      TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
-                      TF_VAR_owner: $(TF_VAR_owner)
-                      TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
-
-                  - task: AzureCLI@2
-                    displayName: "Stage 2 — full apply (all resources including Grafana provider)"
-                    inputs:
-                      azureSubscription: guardianlink-azure
-                      scriptType: bash
-                      scriptLocation: inlineScript
-                      addSpnToEnvironment: true
-                      inlineScript: |
-                        set -euo pipefail
-                        cd terraform/environments/dev
-                        export ARM_CLIENT_ID=$servicePrincipalId
-                        export ARM_TENANT_ID=$tenantId
-                        export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
-                        export ARM_USE_OIDC=true
-                        export ARM_OIDC_TOKEN=$idToken
-                        terraform init \
-                          -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
-                          -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
-                          -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
-                          -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
-                          -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
-                          -input=false -reconfigure
-                        echo "Waiting 30s for role assignment propagation..."
-                        sleep 30
-                        export GRAFANA_URL
-                        GRAFANA_URL=$(terraform output -raw grafana_endpoint)
-                        export GRAFANA_AUTH
-                        GRAFANA_AUTH=$(az account get-access-token \
-                          --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
-                          --query accessToken -o tsv)
-                        terraform apply -auto-approve -input=false
-                    env:
-                      TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
-                      TF_VAR_alert_email: $(TF_VAR_alert_email)
-                      TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
-                      TF_VAR_owner: $(TF_VAR_owner)
-                      TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
-
-                  - task: AzureCLI@2
-                    displayName: Update guardianlink-infra-outputs variable group
-                    condition: succeeded()
-                    env:
-                      ADO_SETUP_PAT: $(ADO_SETUP_PAT)
-                      ADO_ORG: $(ADO_ORG)
-                      ADO_PROJECT_ID: $(ADO_PROJECT_ID)
-                    inputs:
-                      azureSubscription: guardianlink-azure
-                      scriptType: bash
-                      scriptLocation: inlineScript
-                      addSpnToEnvironment: true
-                      inlineScript: |
-                        set -euo pipefail
-                        cd terraform/environments/dev
-                        export ARM_CLIENT_ID=$servicePrincipalId
-                        export ARM_TENANT_ID=$tenantId
-                        export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
-                        export ARM_USE_OIDC=true
-                        export ARM_OIDC_TOKEN=$idToken
-                        terraform init \
-                          -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
-                          -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
-                          -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
-                          -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
-                          -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
-                          -input=false -reconfigure
-                        TF_JSON=$(terraform output -json)
-                        RG=$(echo "$TF_JSON"             | jq -r '.resource_group_name.value')
-                        APPI=$(echo "$TF_JSON"           | jq -r '.app_insights_name.value')
-                        ACR_SERVER=$(echo "$TF_JSON"     | jq -r '.acr_login_server.value')
-                        ACR_NAME=$(echo "$TF_JSON"       | jq -r '.acr_name.value')
-                        FUNC_TW=$(echo "$TF_JSON"        | jq -r '.func_telemetry_writer_name.value')
-                        FUNC_CC=$(echo "$TF_JSON"        | jq -r '.func_crash_classifier_name.value')
-                        FUNC_NOT=$(echo "$TF_JSON"       | jq -r '.func_notifier_name.value')
-                        FUNC_MET=$(echo "$TF_JSON"       | jq -r '.func_metrics_name.value')
-                        CA_ML=$(echo "$TF_JSON"          | jq -r '.container_app_ml_stub_name.value')
-                        GRAFANA_ENDPOINT=$(echo "$TF_JSON"   | jq -r '.grafana_endpoint.value')
-
-                        ADO_ORG="${ADO_ORG}"
-                        ADO_PROJECT="guardianlink"
-                        ADO_PROJECT_ID="${ADO_PROJECT_ID}"
-                        VG_NAME="guardianlink-infra-outputs"
-                        API="https://dev.azure.com/${ADO_ORG}/${ADO_PROJECT}/_apis/distributedtask"
-
-                        VARIABLES=$(jq -n \
-                          --arg rg "$RG" --arg appi "$APPI" \
-                          --arg acr_s "$ACR_SERVER" --arg acr_n "$ACR_NAME" \
-                          --arg tw "$FUNC_TW" --arg cc "$FUNC_CC" \
-                          --arg not "$FUNC_NOT" --arg met "$FUNC_MET" \
-                          --arg ca "$CA_ML" \
-                          --arg grafana_ep "$GRAFANA_ENDPOINT" \
-                          '{
-                            RESOURCE_GROUP_NAME:        {value: $rg},
-                            APP_INSIGHTS_NAME:          {value: $appi},
-                            ACR_LOGIN_SERVER:           {value: $acr_s},
-                            ACR_NAME:                   {value: $acr_n},
-                            FUNC_TELEMETRY_WRITER_NAME: {value: $tw},
-                            FUNC_CRASH_CLASSIFIER_NAME: {value: $cc},
-                            FUNC_NOTIFIER_NAME:         {value: $not},
-                            FUNC_METRICS_NAME:          {value: $met},
-                            CONTAINER_APP_ML_STUB_NAME: {value: $ca},
-                            GRAFANA_ENDPOINT:           {value: $grafana_ep}
-                          }')
-
-                        PROJECT_REF=$(jq -n \
-                          --arg vgname "$VG_NAME" \
-                          --arg proj_id "$ADO_PROJECT_ID" \
-                          --arg proj_name "$ADO_PROJECT" \
-                          '[{name: $vgname, projectReference: {id: $proj_id, name: $proj_name}}]')
-
-                        VG_RESP=$(curl -sf -u ":${ADO_SETUP_PAT}" \
-                          "${API}/variablegroups?groupName=${VG_NAME}&api-version=7.0")
-                        VG_ID=$(echo "$VG_RESP" | jq -r '.value[0].id // empty')
-
-                        if [ -n "$VG_ID" ]; then
-                          PAYLOAD=$(jq -n \
-                            --argjson id "$VG_ID" --arg name "$VG_NAME" \
-                            --argjson vars "$VARIABLES" \
-                            --argjson refs "$PROJECT_REF" \
-                            '{id: $id, name: $name, type: "Vsts", variables: $vars, variableGroupProjectReferences: $refs}')
-                          curl -sf -u ":${ADO_SETUP_PAT}" \
-                            -X PUT -H "Content-Type: application/json" \
-                            -d "$PAYLOAD" \
-                            "${API}/variablegroups/${VG_ID}?api-version=7.0" > /dev/null
-                          echo "Variable group ${VG_NAME} updated (id=${VG_ID})."
-                        else
-                          PAYLOAD=$(jq -n \
-                            --arg name "$VG_NAME" \
-                            --argjson vars "$VARIABLES" \
-                            --argjson refs "$PROJECT_REF" \
-                            '{name: $name, type: "Vsts", variables: $vars, variableGroupProjectReferences: $refs}')
-                          curl -sf -u ":${ADO_SETUP_PAT}" \
-                            -X POST -H "Content-Type: application/json" \
-                            -d "$PAYLOAD" \
-                            "${API}/variablegroups?api-version=7.0" > /dev/null
-                          echo "Variable group ${VG_NAME} created."
-                        fi
-
-    - stage: trigger_app_pipelines
-      displayName: Trigger App Pipelines
-      dependsOn: apply_dev
-      condition: succeeded()
-      jobs:
-        - job: trigger
-          displayName: Queue app pipelines to populate environment
-          pool:
-            vmImage: ubuntu-latest
-          steps:
             - bash: |
                 set -euo pipefail
                 API="https://dev.azure.com/${ADO_ORG}/guardianlink/_apis/pipelines"
@@ -466,45 +168,18 @@ stages:
                     exit 1
                   fi
                 done
-              displayName: Trigger app pipelines by ID
+              displayName: Trigger app pipelines
               env:
                 ADO_SETUP_PAT: $(ADO_SETUP_PAT)
                 ADO_ORG: $(ADO_ORG)
-
-    - stage: plan_prod
-      displayName: Plan Prod (stub)
-      dependsOn: trigger_app_pipelines
-      condition: succeeded()
-      jobs:
-        - job: stub
-          pool:
-            vmImage: ubuntu-latest
-          steps:
-            - script: echo "Prod workspace not yet configured."
-              displayName: Prod plan stub
-
-    - stage: apply_prod
-      displayName: Apply Prod (stub)
-      dependsOn: plan_prod
-      condition: succeeded()
-      jobs:
-        - deployment: apply_prod
-          displayName: Prod apply stub
-          environment: prod
-          pool:
-            vmImage: ubuntu-latest
-          strategy:
-            runOnce:
-              deploy:
-                steps:
-                  - script: echo "Prod workspace not yet configured."
-                    displayName: Prod apply stub
 
   - ${{ if eq(parameters.action, 'destroy') }}:
     - stage: destroy_dev
       displayName: Destroy Dev
       dependsOn: []
       variables:
+        - group: guardianlink-backend
+        - group: guardianlink-dev
         - group: guardianlink-infra-outputs
       jobs:
         - deployment: destroy
@@ -518,23 +193,7 @@ stages:
                 steps:
                   - checkout: self
 
-                  - bash: |
-                      set -euo pipefail
-                      INSTALL_DIR="${AGENT_TEMPDIRECTORY}/terraform-install"
-                      rm -rf "$INSTALL_DIR"
-                      mkdir -p "$INSTALL_DIR"
-
-                      curl -fsSL \
-                        "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" \
-                        -o "$INSTALL_DIR/terraform.zip"
-
-                      unzip -o "$INSTALL_DIR/terraform.zip" -d "$INSTALL_DIR"
-                      sudo install -m 0755 "$INSTALL_DIR/terraform" /usr/local/bin/terraform
-
-                      terraform version
-                    displayName: Install Terraform
-                    env:
-                      TERRAFORM_VERSION: $(TERRAFORM_VERSION)
+                  - template: templates/steps/install-terraform.yml
 
                   - task: AzureCLI@2
                     displayName: terraform destroy
@@ -556,11 +215,8 @@ stages:
                           -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
                           -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
                           -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
-                          -backend-config="key=$(TF_BACKEND_STATE_KEY)" \
+                          -backend-config="key=guardianlink-dev" \
                           -input=false
-                        # Use the Grafana endpoint from the last apply so the provider
-                        # can connect to delete dashboards/data-sources before the
-                        # Azure Managed Grafana resource itself is destroyed.
                         export GRAFANA_URL="${GRAFANA_ENDPOINT:-https://placeholder.grafana.invalid}"
                         export GRAFANA_AUTH
                         GRAFANA_AUTH=$(az account get-access-token \
