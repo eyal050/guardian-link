@@ -1,0 +1,18 @@
+application_name      = "guardianlink"
+environment_name      = "prod"
+primary_location      = "westeurope"
+new_subscription_name = "guardianlink-prod"
+budget_amount         = 200
+billing_scope_id      = "/providers/Microsoft.Billing/billingAccounts/<account-id>/billingProfiles/<profile-id>/invoiceSections/<section-id>"
+
+# Optional:
+# management_group_id  = "/providers/Microsoft.Management/managementGroups/<mg-name>"
+# budget_contact_email = "you@example.com"
+# owner                = "you@example.com"
+
+# First-time deploy: leave workload_subscription_id commented out.
+# Run ./run.sh stage0 to create the subscription, then set this and run ./run.sh apply.
+# workload_subscription_id = "<output of: terraform output -raw subscription_id>"
+
+# Optional: AAD object ID for Grafana Viewer.
+# grafana_viewer_principal_id = "<aad-object-id>"
