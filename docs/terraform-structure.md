@@ -27,10 +27,12 @@ terraform/
 │   │   ├── versions.tf
 │   │   ├── variables.tf
 │   │   └── main.tf           # calls modules with staging-specific overrides
-│   └── prod/                 # stub — not deployed; shows prod-specific config
-│       ├── versions.tf
-│       ├── variables.tf
-│       └── main.tf           # calls modules with prod-specific overrides (private endpoints, higher partitions)
+│   └── prod/                 # flat stack — deployed under guardianlink-prod sub
+│       ├── versions.tf, variables.tf, locals.tf
+│       ├── subscription.tf   # azurerm_subscription.main kept in state (unlike dev)
+│       ├── *.tf              # resource definitions (mirrors dev)
+│       ├── terraform.tfvars.example
+│       └── run.sh            # three-mode wrapper: stage0 | apply | passthrough
 └── modules/
     ├── observability/         # Log Analytics workspace + App Insights (fully extracted)
     │   ├── versions.tf        # configuration_aliases = [azurerm.workload]
@@ -195,3 +197,34 @@ name_prefix = "${var.application_name}-${var.environment_name}-${local.location_
 Every stack includes a budget with 50% actual and 80% forecast email alerts. Default: €100/month for dev.
 
 Run `terraform destroy` when not in active use — the remote state persists, so the stack can be rebuilt from `terraform apply`.
+
+---
+
+## Prod environment
+
+Prod is a flat copy of dev (not module-based composition). It owns its own subscription, `guardianlink-prod`, created and tracked by Terraform via `azurerm_subscription.main` in `subscription.tf`.
+
+### First-time deploy (Stage 0)
+
+Subscription creation requires `Microsoft.Subscription/aliases/write` on the billing scope. The ADO service principal does not have it. Run Stage 0 once locally with your own `az login`:
+
+```bash
+cd terraform/environments/prod
+cp terraform.tfvars.example terraform.tfvars
+# set billing_scope_id; leave workload_subscription_id commented
+./run.sh stage0 -auto-approve
+```
+
+The script prints the new `subscription_id`. Paste it as `TF_VAR_workload_subscription_id` in the `guardianlink-prod` ADO variable group. Subsequent runs (Stages 1 & 2) authenticate via OIDC and don't need Stage 0 again.
+
+### Why prod retains `azurerm_subscription.main` (dev removes it)
+
+Dev's `subscription.tf` has a `removed` block dropping `azurerm_subscription.main` from state — the subscription was created out-of-band and the SP can't refresh it, so Terraform stops managing it. Prod doesn't carry this constraint because Stage 0 runs with user credentials, so the resource stays in state and the subscription's tags/budgets remain Terraform-managed.
+
+### Pipeline template
+
+Both dev and prod stages are produced by `pipelines/templates/terraform-env.yml`, called from `pipelines/infra.yml` with per-env parameters (`environment`, `tfDir`, `variableGroup`, `adoEnvironment`, `stateKey`). The template emits three stages — `validate_<env>`, `plan_<env>`, `apply_<env>` — plus an environment-gated deployment job. Adding a third environment is one more `- template:` block in `infra.yml` plus a matching variable group.
+
+### Deploy-verify-destroy
+
+Prod is not long-lived in this repo's deployment model. The validation pattern is: deploy, run smoke tests against the live stack, then destroy. The destroy stage removes `azurerm_subscription.main` from state before `terraform destroy`, so the subscription itself is preserved (disabled rather than deleted) and the state key remains valid for the next cycle.
