@@ -13,10 +13,10 @@
 
 locals {
   workbook_queries = {
-    throughput               = file("${path.module}/../../dashboards/queries/throughput.kql")
-    event_type_distribution  = file("${path.module}/../../dashboards/queries/event_type_distribution.kql")
-    producer_consumer_totals = file("${path.module}/../../dashboards/queries/producer_consumer_totals.kql")
-    partition_distribution   = file("${path.module}/../../dashboards/queries/partition_distribution.kql")
+    throughput               = file("${path.module}/../../../dashboards/queries/throughput.kql")
+    event_type_distribution  = file("${path.module}/../../../dashboards/queries/event_type_distribution.kql")
+    producer_consumer_totals = file("${path.module}/../../../dashboards/queries/producer_consumer_totals.kql")
+    partition_distribution   = file("${path.module}/../../../dashboards/queries/partition_distribution.kql")
   }
 
   workbook_data = jsonencode({

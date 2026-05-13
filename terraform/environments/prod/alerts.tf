@@ -21,9 +21,9 @@
 
 locals {
   alert_queries = {
-    no_telemetry       = file("${path.module}/../../alerts/queries/no_telemetry.kql")
-    crash_spike        = file("${path.module}/../../alerts/queries/crash_spike.kql")
-    no_iot_connections = file("${path.module}/../../alerts/queries/no_iot_connections.kql")
+    no_telemetry       = file("${path.module}/../../../alerts/queries/no_telemetry.kql")
+    crash_spike        = file("${path.module}/../../../alerts/queries/crash_spike.kql")
+    no_iot_connections = file("${path.module}/../../../alerts/queries/no_iot_connections.kql")
   }
 }
 

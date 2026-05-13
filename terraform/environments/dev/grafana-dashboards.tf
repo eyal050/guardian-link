@@ -14,7 +14,7 @@ resource "grafana_data_source" "azure_monitor" {
 resource "grafana_dashboard" "crash_pipeline" {
   provider = grafana.managed
 
-  config_json = file("${path.module}/../../dashboards/grafana/crash-pipeline.json")
+  config_json = file("${path.module}/../../../dashboards/grafana/crash-pipeline.json")
   folder      = 0
 
   depends_on = [grafana_data_source.azure_monitor]
