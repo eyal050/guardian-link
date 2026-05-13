@@ -1,5 +1,7 @@
 # GuardianLink — Azure IoT Safety Platform
 
+[![Unit Tests](https://dev.azure.com/eyal050/guardianlink/_apis/build/status/tests?branchName=main&label=unit%20tests)](https://dev.azure.com/eyal050/guardianlink/_build?definitionName=tests)
+
 A reference architecture for a connected personal safety platform: wearable devices stream telemetry to Azure, an ML-backed crash classifier confirms incidents, and emergency contacts are notified within seconds via SMS, email, and push.
 
 Built end-to-end with Terraform, Azure DevOps, and full observability. Every resource authenticates via managed identity — no connection strings, no stored credentials.
@@ -119,7 +121,10 @@ guardian-link/
 │   ├── notifier/               # Azure Function (idempotent, ACS)
 │   └── metrics/                # Azure Function
 ├── terraform/
-│   └── guardianlink-dev/       # flat stack per (app, env); see docs/terraform-structure.md
+│   ├── environments/dev/       # deployed stack; see docs/terraform-structure.md
+│   ├── environments/staging/   # stub — shows module consumption pattern
+│   ├── environments/prod/      # stub — shows prod-specific overrides
+│   └── modules/                # reusable modules: observability, iot, eventhub, servicebus, functions
 ├── pipelines/                  # Azure DevOps pipeline YAMLs
 ├── alerts/                     # KQL files for Azure Monitor alert rules
 ├── dashboards/                 # Azure Monitor workbook JSON
@@ -139,6 +144,25 @@ guardian-link/
 - Staging + production environment separation with Terraform module structure and promotion pipeline
 - Integration test suite covering the simulator → IoT Hub → Event Hub → Cosmos path
 - Real ML model replacing the classifier stub
+
+---
+
+## Testing
+
+**Unit tests** — 44 tests across 6 apps, covering classifier scoring, telemetry transformation, notifier idempotency, and metric logging. Each app's tests use mocked Azure SDK clients and run independently:
+
+```bash
+./scripts/run-tests.sh          # all apps
+./scripts/run-tests.sh --cov    # with per-app coverage report
+```
+
+**Integration tests** — documented scenarios in `tests/` for the full pipeline (device → IoT Hub → Cosmos) and alert path (crash_suspect → classifier → notifier). Require a live Azure environment:
+
+```bash
+pytest tests/ --integration
+```
+
+The CI pipeline (`pipelines/tests.yml`) runs unit tests and linting on every pull request, publishing JUnit results and coverage to Azure DevOps.
 
 ---
 

@@ -1,0 +1,126 @@
+# pipelines/tests.yml
+# Runs unit tests for all Python apps on every pull request.
+# Triggered automatically on PRs targeting main; can also be run manually.
+name: '$(Build.BuildId) - tests - $(Date:yyyyMMdd)'
+
+trigger: none   # manual and PR-triggered only
+
+pr:
+  branches:
+    include:
+      - main
+      - dev
+  paths:
+    include:
+      - apps/**
+      - tests/**
+      - pyproject.toml
+      - scripts/run-tests.sh
+      - pipelines/tests.yml
+
+variables:
+  PYTHON_VERSION: '3.10'
+
+stages:
+  - stage: unit_tests
+    displayName: Unit Tests
+    jobs:
+      - job: run_tests
+        displayName: pytest — all apps
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: UsePythonVersion@0
+            displayName: Use Python $(PYTHON_VERSION)
+            inputs:
+              versionSpec: $(PYTHON_VERSION)
+
+          - bash: |
+              set -euo pipefail
+              APPS=(crash-classifier telemetry-writer notifier metrics simulator consumer)
+              for app in "${APPS[@]}"; do
+                echo "Installing deps for ${app}..."
+                pip install -r "apps/${app}/requirements-dev.txt" --quiet
+              done
+            displayName: Install all app dependencies
+
+          - bash: |
+              set -euo pipefail
+              pip install pytest-cov --quiet
+
+              APPS=(crash-classifier telemetry-writer notifier metrics simulator consumer)
+              TOTAL_PASS=0
+              TOTAL_FAIL=0
+              FAILED_APPS=()
+
+              for app in "${APPS[@]}"; do
+                echo ""
+                echo "━━━  ${app}  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                set +e
+                python3 -m pytest "apps/${app}/tests/" \
+                  --rootdir="apps/${app}" \
+                  --junitxml="test-results/${app}.xml" \
+                  --cov="apps/${app}" \
+                  --cov-report=xml:"coverage/${app}.xml" \
+                  --cov-report=term-missing \
+                  -v
+                EXIT=$?
+                set -e
+                if [ "$EXIT" -eq 0 ]; then
+                  TOTAL_PASS=$((TOTAL_PASS + 1))
+                else
+                  TOTAL_FAIL=$((TOTAL_FAIL + 1))
+                  FAILED_APPS+=("${app}")
+                fi
+              done
+
+              echo ""
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              echo "Results: ${TOTAL_PASS} passed, ${TOTAL_FAIL} failed"
+
+              if [ ${#FAILED_APPS[@]} -gt 0 ]; then
+                echo "Failed: ${FAILED_APPS[*]}"
+                exit 1
+              fi
+            displayName: Run unit tests with coverage
+
+          - task: PublishTestResults@2
+            displayName: Publish test results
+            condition: always()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: 'test-results/*.xml'
+              mergeTestResults: true
+              testRunTitle: 'Unit Tests'
+              failTaskOnFailedTests: true
+
+          - task: PublishCodeCoverageResults@2
+            displayName: Publish coverage report
+            condition: always()
+            inputs:
+              summaryFileLocation: 'coverage/*.xml'
+
+  - stage: lint
+    displayName: Lint
+    dependsOn: []
+    jobs:
+      - job: ruff
+        displayName: ruff — all apps
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: $(PYTHON_VERSION)
+
+          - bash: pip install ruff --quiet
+            displayName: Install ruff
+
+          - bash: |
+              set -euo pipefail
+              APPS=(crash-classifier telemetry-writer notifier metrics simulator consumer)
+              for app in "${APPS[@]}"; do
+                echo "Linting ${app}..."
+                ruff check "apps/${app}" --ignore E501
+              done
+            displayName: ruff check all apps

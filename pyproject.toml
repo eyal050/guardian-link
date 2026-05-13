@@ -1,0 +1,27 @@
+[tool.pytest.ini_options]
+# Root pytest covers only tests/ (integration tests).
+# Unit tests live in each app and run via scripts/run-tests.sh.
+testpaths = ["tests"]
+norecursedirs = ["apps", ".venv", ".python_packages", "terraform", "pipelines"]
+markers = [
+    "integration: requires a live Azure environment (skipped by default)",
+]
+addopts = "-ra -q"
+
+[tool.coverage.run]
+source = [
+    "apps/crash-classifier",
+    "apps/telemetry-writer",
+    "apps/notifier",
+    "apps/metrics",
+    "apps/simulator",
+    "apps/consumer",
+]
+omit = ["*/.venv/*", "*/.python_packages/*", "*/tests/*", "*/conftest.py"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
