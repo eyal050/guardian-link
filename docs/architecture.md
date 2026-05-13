@@ -6,59 +6,48 @@ A user wears a BLE device (or runs a mobile app) that continuously samples accel
 
 ## High-level diagram
 
-```
- ┌────────────────────┐      ┌────────────────────┐
- │ BLE device / phone │─────▶│ Mobile app gateway │
- └────────────────────┘      └──────────┬─────────┘
-                                        │ MQTT/HTTPS
-                                        ▼
-                              ┌────────────────────┐
-                              │    Azure IoT Hub   │
-                              └──────────┬─────────┘
-                                         │
-                                         ▼
-                              ┌────────────────────┐
-                              │    Event Grid /    │
-                              │   Event Hubs (?)   │  ← open decision
-                              └──────────┬─────────┘
-                         ┌───────────────┼───────────────┐
-                         ▼               ▼               ▼
-                 ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-                 │ Telemetry   │  │ Crash       │  │ Metrics     │
-                 │ writer (Fn) │  │ classifier  │  │ function    │
-                 └──────┬──────┘  │   (Fn)      │  └──────┬──────┘
-                        │         └──────┬──────┘         │
-          ┌─────────────┴──┐             │                │
-          ▼                ▼             ▼                ▼
-  ┌──────────────┐  ┌────────────┐  ┌─────────────┐  ┌──────────────┐
-  │  Cosmos DB   │  │ Blob (raw  │  │ ML endpoint │  │ App Insights │
-  │  (hot store) │  │  telemetry)│  │ (Container  │  │              │
-  └──────────────┘  └────────────┘  │  App stub)  │  └──────────────┘
-                                    └──────┬──────┘
-                                           │ if crash confirmed
-                                           ▼
-                                    ┌────────────┐
-                                    │ Notifier   │
-                                    │   (Fn)     │
-                                    └──┬──┬──┬───┘
-                          ┌────────────┘  │  └──────────────┐
-                          ▼               ▼                 ▼
-                      ┌───────┐      ┌─────────┐      ┌─────────────┐
-                      │  ACS  │      │   ACS   │      │ Notification│
-                      │ (SMS) │      │ (email) │      │ Hubs (push, │
-                      │       │      │         │      │   stubbed)  │
-                      └───────┘      └─────────┘      └─────────────┘
+```mermaid
+flowchart TD
+    Device["BLE device / phone"] -->|MQTT over TLS| IoTHub["Azure IoT Hub\n(device identity, D2C routing)"]
 
- ┌─────────────────┐          ┌──────────────────┐        ┌──────────────┐
- │   API Mgmt      │─────────▶│ user-api (Fn or  │───────▶│  PostgreSQL  │
- │   (public)      │          │ Container App)   │        │  Flexible    │
- └─────────────────┘          └──────────────────┘        └──────────────┘
+    IoTHub -->|telemetry route| EH["Event Hubs\n4 partitions, RBAC-only"]
+    IoTHub -->|lifecycle events| EG["Event Grid\n(device paired, blob-created)"]
 
- Cross-cutting:
-   • Key Vault  ← all secrets, connection strings, certs
-   • Log Analytics workspace  ← all logs land here
-   • Managed Identities everywhere possible (no connection-string auth between services)
-   • Private endpoints for data stores (dev may skip this for cost)
+    EH --> TW["Telemetry Writer\n(Function App)"]
+    EH --> CC["Crash Classifier\n(Function App)"]
+    EH --> MF["Metrics Function\n(Function App)"]
+
+    TW -->|upsert| Cosmos["Cosmos DB\nserverless, /device_id key"]
+    TW -->|NDJSON archive| Blob["Blob Storage\nhive-partitioned by time"]
+
+    CC -->|fetch telemetry window| Cosmos
+    CC -->|call| ML["ML stub\n(Container App)\nreturns confidence score"]
+    ML -->|≥ 90% confidence| SB["Service Bus\ncrash-confirmed queue\nat-least-once + DLQ"]
+
+    SB --> Notifier["Notifier\n(Function App)\nidempotent, channel cursor"]
+    Notifier --> SMS["ACS SMS"]
+    Notifier --> Email["ACS Email"]
+    Notifier --> Push["Push stub"]
+
+    Notifier -->|idempotency record| Cosmos
+
+    MF --> AI["App Insights\n+ Log Analytics"]
+    TW --> AI
+    CC --> AI
+    Notifier --> AI
+
+    subgraph Identity ["Trust boundary — Managed Identity everywhere"]
+        KV["Key Vault\nRBAC model, no access policies"]
+    end
+
+    TW -.->|secrets| KV
+    CC -.->|secrets| KV
+    Notifier -.->|secrets| KV
+
+    subgraph API ["API layer"]
+        APIM["API Management"] --> UserAPI["user-api\n(Function / Container App)"]
+        UserAPI --> PG["PostgreSQL Flexible\nusers, contacts, consent"]
+    end
 ```
 
 ## Components and responsibilities

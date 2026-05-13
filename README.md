@@ -1,88 +1,161 @@
 # GuardianLink — Azure IoT Safety Platform
 
-A reference implementation of a production-grade Azure backend for a connected personal safety platform.
-Demonstrates end-to-end patterns for device telemetry ingestion, event-driven processing, observability, and zero-credential CI/CD on Azure.
+A reference architecture for a connected personal safety platform: wearable devices stream telemetry to Azure, an ML-backed crash classifier confirms incidents, and emergency contacts are notified within seconds via SMS, email, and push.
 
-## Architecture at a glance
+Built end-to-end with Terraform, Azure DevOps, and full observability. Every resource authenticates via managed identity — no connection strings, no stored credentials.
 
-![Architecture diagram placeholder — see docs/architecture.md](docs/architecture.png)
+---
 
-**Telemetry path:** Device → IoT Hub → Event Hubs → Telemetry Writer (Function) → Cosmos DB
-**Alert path:** Crash classifier (Function) → Service Bus → Notifier (Function) → SendGrid + Postgres history
-**Routing:** Event Grid for cross-system fan-out
-**Operations:** App Insights + Log Analytics + KQL-based Azure Monitor alerts + workbook dashboard
+## Architecture
 
-Full design and decision log: [`docs/architecture.md`](docs/architecture.md)
+```mermaid
+flowchart TD
+    Device["BLE device / phone"] -->|MQTT over TLS| IoTHub["Azure IoT Hub\n(device identity, D2C routing)"]
 
-## Key design decisions
+    IoTHub -->|telemetry route| EH["Event Hubs\n4 partitions, RBAC-only"]
+    IoTHub -->|lifecycle events| EG["Event Grid\n(device paired, blob-created)"]
 
-These are the decisions worth discussing in detail. Each represents a deliberate tradeoff, not a default.
+    EH --> TW["Telemetry Writer\n(Function App)"]
+    EH --> CC["Crash Classifier\n(Function App)"]
+    EH --> MF["Metrics Function\n(Function App)"]
 
-**IoT Hub + Event Hubs (not just Event Hubs).** Per-device identity, per-device throttling, and the D2C routing model are essential for a connected-device fleet.
-Event Hubs alone gives you throughput but loses device-level governance.
+    TW -->|upsert| Cosmos["Cosmos DB\nserverless, /device_id key"]
+    TW -->|NDJSON archive| Blob["Blob Storage\nhive-partitioned by time"]
 
-**Managed identity everywhere.** `local_authentication_enabled = false` on Event Hubs.
-Every resource authenticates via Entra ID.
-Zero connection strings in app settings or pipeline variables.
-CI/CD uses OIDC-federated workload identity — no stored secrets in Azure DevOps.
+    CC -->|fetch telemetry window| Cosmos
+    CC -->|call| ML["ML stub\n(Container App)\nreturns confidence score"]
+    ML -->|≥ 90% confidence| SB["Service Bus\ncrash-confirmed queue\nat-least-once + DLQ"]
 
-**Separate Function Apps per workload.** The crash classifier and the notifier have different SLOs and different blast radius.
-Co-locating them would couple their fate.
-Each Function App is independently scaled, deployed, and observed.
+    SB --> Notifier["Notifier\n(Function App)\nidempotent, channel cursor"]
+    Notifier --> SMS["ACS SMS"]
+    Notifier --> Email["ACS Email"]
+    Notifier --> Push["Push stub"]
 
-**PaaS over AKS for this workload profile.** The application's scaling and operational profile didn't justify the operational overhead of AKS.
-This is a deliberate choice with a documented decision record, not a knowledge gap.
-A parallel AKS-based variant is on the roadmap to demonstrate the alternative.
+    Notifier -->|idempotency record| Cosmos
 
-**Failure-injection-driven validation.** [`docs/failure-scenarios.md`](docs/failure-scenarios.md) catalogs realistic production failures (dependency outages, partial degradation, misconfigurations).
-Each is reproducible. Diagnosis is performed using only Azure Monitor and App Insights, with post-mortems written against each scenario.
+    MF --> AI["App Insights\n+ Log Analytics"]
+    TW --> AI
+    CC --> AI
+    Notifier --> AI
+
+    subgraph Identity ["Trust boundary — Managed Identity everywhere"]
+        KV["Key Vault\nRBAC model, no access policies"]
+    end
+
+    TW -.->|secrets| KV
+    CC -.->|secrets| KV
+    Notifier -.->|secrets| KV
+
+    subgraph API ["API layer"]
+        APIM["API Management"] --> UserAPI["user-api\n(Function / Container App)"]
+        UserAPI --> PG["PostgreSQL Flexible\nusers, contacts, consent"]
+    end
+```
+
+See [`docs/architecture.md`](docs/architecture.md) for full component detail and all recorded design decisions.
+
+---
+
+## Design decisions worth asking about
+
+**Why IoT Hub in front of Event Hubs?**
+Device identity, per-device quotas, and the D2C routing model. A connected safety device fleet needs bidirectional comms and a device registry — raw Event Hubs has neither.
+
+**Why three eventing backbones?**
+Different SLOs require different semantics:
+- **Event Hubs** for device telemetry — high throughput, partitioned by `deviceId`, replayable so the classifier can re-run over historical windows.
+- **Service Bus** for crash notifications — at-least-once + DLQ because a missed crash alert is a safety failure. The notifier is idempotent to tolerate redelivery.
+- **Event Grid** for lifecycle events — push-based reactive Functions at low volume, platform system-topics are Event Grid-native.
+
+**Why managed identity everywhere?**
+`local_authentication_enabled = false` on Event Hubs and Service Bus, `local_authentication_disabled = true` on Cosmos DB. Every service-to-service call authenticates through Entra ID. The only secrets in Key Vault are externally-issued credentials (ACS, Postgres password).
+
+**Why separate Function Apps per workload?**
+The crash classifier and notifier have different SLOs and cannot share fate. A classifier cold start should never delay a notification. An overloaded telemetry writer should not block crash detection.
+
+**Why PaaS (Functions) over AKS for this workload profile?**
+The application's scaling and operational profile — stateless, event-triggered, bursty dev volumes — fits Functions better than a long-running pod. This is a deliberate decision, not a knowledge gap. An AKS-based variant of the consumer path (Key Vault CSI driver, HPA, network policies) is on the roadmap to demonstrate the alternative pattern where it's actually justified.
+
+**Why OIDC for CI/CD?**
+No stored service principal secrets in Azure DevOps. The infra pipeline federates with Entra ID via Workload Identity — the credential rotates automatically and there is nothing to leak.
+
+**Why Cosmos DB serverless with `/device_id` partition key?**
+The dev workload is bursty and the stack is destroyed nightly — paying-per-RU beats paying for an idle autoscale floor. Partition key is driven by the dominant read pattern: "last N minutes of telemetry for device X" is a single-partition lookup with a time-range filter.
+
+---
 
 ## Stack
 
 | Layer | Technology |
 |---|---|
-| Infrastructure as Code | Terraform (≥ 1.7), remote state in Azure Storage |
-| CI/CD | Azure DevOps pipelines with OIDC service connection |
 | Device ingestion | Azure IoT Hub |
-| Event streaming | Azure Event Hubs (4 partitions, RBAC-only) |
-| Compute | Azure Functions (Python v2 model) |
-| State | Cosmos DB (device/event), PostgreSQL Flexible Server (notification history) |
-| Messaging | Service Bus + Event Grid |
-| Secrets | Azure Key Vault (accessed via managed identity) |
+| Telemetry streaming | Azure Event Hubs (4 partitions, RBAC-only) |
+| Crash notification pipeline | Azure Service Bus (at-least-once + DLQ) |
+| Lifecycle events | Azure Event Grid |
+| Processing | Azure Functions (Python v2 model) |
+| ML classifier stub | Azure Container Apps |
+| Hot store | Cosmos DB (serverless, Core SQL API) |
+| Cold archive | Blob Storage (NDJSON, hive-partitioned) |
+| Relational store | PostgreSQL Flexible Server |
+| API edge | Azure API Management |
+| Secrets | Key Vault (RBAC, no access policies) |
 | Observability | App Insights + Log Analytics + Azure Monitor Workbook |
 | Alerting | Azure Monitor scheduled-query rules (KQL) |
-| Notifications | SendGrid |
+| IaC | Terraform ≥ 1.7 |
+| CI/CD | Azure DevOps (OIDC — no stored credentials) |
+| Device simulator | Python async (`azure-iot-device`) |
 
-## Repository layout
+---
+
+## Repo layout
 
 ```
-.
-├── docs/                            architecture, decisions, failure scenarios
+guardian-link/
+├── apps/
+│   ├── simulator/              # Python device simulator (sim-01, sim-02)
+│   ├── consumer/               # Python Event Hub inspector
+│   ├── telemetry-writer/       # Azure Function
+│   ├── crash-classifier/       # Azure Function + ML stub
+│   ├── notifier/               # Azure Function (idempotent, ACS)
+│   └── metrics/                # Azure Function
 ├── terraform/
-│   └── guardianlink-dev/            dev environment (staging/prod variants on roadmap)
-├── apps/                            Python applications
-│   ├── simulator/                   device simulators
-│   ├── consumer/                    Event Hub inspector
-│   ├── telemetry-writer/            Function: ingestion → Cosmos
-│   ├── crash-classifier/            Function: classification + ML stub
-│   ├── notifier/                    Function: alert delivery
-│   └── metrics/                     Function: aggregation
-├── pipelines/                       Azure DevOps YAML pipelines (one per workload)
-├── alerts/                          KQL queries for Azure Monitor alert rules
-└── dashboards/                      Azure Monitor workbook (JSON)
+│   └── guardianlink-dev/       # flat stack per (app, env); see docs/terraform-structure.md
+├── pipelines/                  # Azure DevOps pipeline YAMLs
+├── alerts/                     # KQL files for Azure Monitor alert rules
+├── dashboards/                 # Azure Monitor workbook JSON
+├── docs/
+│   ├── architecture.md         # full component detail + all recorded decisions
+│   ├── terraform-structure.md  # environment promotion model
+│   └── failure-scenarios.md    # break/debug catalog (the primary learning exercise)
+├── AI_WORKFLOW.md              # AI-augmented development methodology
+└── SETUP.md                    # prerequisites, Terraform variables, ADO setup, simulator commands
 ```
+
+---
 
 ## Roadmap
 
 - AKS-based variant of the telemetry consumer path (Key Vault CSI driver, HPA, network policies)
-- Staging + production environment separation with promotion pipeline
+- Staging + production environment separation with Terraform module structure and promotion pipeline
 - Integration test suite covering the simulator → IoT Hub → Event Hub → Cosmos path
 - Real ML model replacing the classifier stub
 
+---
+
+## Failure injection
+
+[`docs/failure-scenarios.md`](docs/failure-scenarios.md) catalogs realistic production failures. The workflow: inject a failure, diagnose it using only Azure Monitor and App Insights, write a post-mortem. This is the primary learning exercise in the repo.
+
+---
+
 ## Setup
 
-Detailed setup instructions, including Azure DevOps variable groups, OIDC service connection configuration, and local Terraform execution, are in [`SETUP.md`](SETUP.md).
+See [`SETUP.md`](SETUP.md) for prerequisites, Terraform variables, ADO variable group configuration, and step-by-step deploy instructions.
 
-## License
+---
 
-MIT — see [`LICENSE`](LICENSE).
+## AI-augmented workflow
+
+This project was built using an AI-augmented engineering workflow. Architectural decisions, tradeoff analysis, and operational design are mine; Claude Code executed implementation under direction.
+
+See [`AI_WORKFLOW.md`](AI_WORKFLOW.md) for how the collaboration is structured.
