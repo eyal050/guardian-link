@@ -88,6 +88,12 @@ stages:
                   FUNC_MET=$(echo "$TF_JSON"       | jq -r '.func_metrics_name.value')
                   CA_ML=$(echo "$TF_JSON"          | jq -r '.container_app_ml_stub_name.value')
                   GRAFANA_ENDPOINT=$(echo "$TF_JSON"   | jq -r '.grafana_endpoint.value')
+                  AKS_NAME=$(echo "$TF_JSON"              | jq -r '.aks_cluster_name.value')
+                  CONSUMER_WI_CLIENT_ID=$(echo "$TF_JSON" | jq -r '.consumer_identity_client_id.value')
+                  STORAGE_BLOB_URL=$(echo "$TF_JSON"      | jq -r '.storage_blob_url.value')
+                  EH_FQDN=$(echo "$TF_JSON"              | jq -r '.eventhub_fqdn.value')
+                  EH_NAME=$(echo "$TF_JSON"              | jq -r '.eventhub_name.value')
+                  KV_NAME=$(echo "$TF_JSON"              | jq -r '.key_vault_name.value')
 
                   ADO_PROJECT="guardianlink"
                   VG_NAME="guardianlink-infra-outputs"
@@ -100,6 +106,12 @@ stages:
                     --arg not "$FUNC_NOT" --arg met "$FUNC_MET" \
                     --arg ca "$CA_ML" \
                     --arg grafana_ep "$GRAFANA_ENDPOINT" \
+                    --arg aks_name "$AKS_NAME" \
+                    --arg consumer_wi_client_id "$CONSUMER_WI_CLIENT_ID" \
+                    --arg storage_blob_url "$STORAGE_BLOB_URL" \
+                    --arg eh_fqdn "$EH_FQDN" \
+                    --arg eh_name "$EH_NAME" \
+                    --arg kv_name "$KV_NAME" \
                     '{
                       RESOURCE_GROUP_NAME:        {value: $rg},
                       APP_INSIGHTS_NAME:          {value: $appi},
@@ -110,7 +122,13 @@ stages:
                       FUNC_NOTIFIER_NAME:         {value: $not},
                       FUNC_METRICS_NAME:          {value: $met},
                       CONTAINER_APP_ML_STUB_NAME: {value: $ca},
-                      GRAFANA_ENDPOINT:           {value: $grafana_ep}
+                      GRAFANA_ENDPOINT:           {value: $grafana_ep},
+                      AKS_CLUSTER_NAME:             {value: $aks_name},
+                      CONSUMER_IDENTITY_CLIENT_ID:  {value: $consumer_wi_client_id},
+                      STORAGE_BLOB_URL:             {value: $storage_blob_url},
+                      EVENT_HUB_FQDN:               {value: $eh_fqdn},
+                      EVENT_HUB_NAME:               {value: $eh_name},
+                      KV_NAME:                      {value: $kv_name}
                     }')
 
                   PROJECT_REF=$(jq -n \
