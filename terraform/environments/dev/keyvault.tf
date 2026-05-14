@@ -31,3 +31,13 @@ resource "azurerm_role_assignment" "kv_operator_secrets_officer" {
   role_definition_name = "Key Vault Secrets Officer"
   principal_id         = data.azurerm_client_config.current.object_id
 }
+
+resource "azurerm_key_vault_secret" "appi_connection_string" {
+  provider = azurerm.workload
+
+  name         = "appi-connection-string"
+  value        = azurerm_application_insights.main.connection_string
+  key_vault_id = azurerm_key_vault.main.id
+
+  depends_on = [azurerm_role_assignment.kv_operator_secrets_officer]
+}

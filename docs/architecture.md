@@ -16,6 +16,8 @@ flowchart TD
     EH --> TW["Telemetry Writer\n(Function App)"]
     EH --> CC["Crash Classifier\n(Function App)"]
     EH --> MF["Metrics Function\n(Function App)"]
+    EH --> Consumer["Event Hub Consumer\n(AKS — long-running pod)\ninspector consumer group"]
+    Consumer --> AI
 
     TW -->|upsert| Cosmos["Cosmos DB\nserverless, /device_id key"]
     TW -->|NDJSON archive| Blob["Blob Storage\nhive-partitioned by time"]
@@ -47,6 +49,10 @@ flowchart TD
     subgraph API ["API layer"]
         APIM["API Management"] --> UserAPI["user-api\n(Function / Container App)"]
         UserAPI --> PG["PostgreSQL Flexible\nusers, contacts, consent"]
+    end
+
+    subgraph AKSCluster ["AKS cluster — Workload Identity + Calico"]
+        Consumer
     end
 ```
 
@@ -199,6 +205,13 @@ The crash notification path probably wants **at-least-once with dead-letter** (S
     - Classifier latency (`classifier_latency_ms`): computed inside `classify_crash` as `now() − event.enqueued_time` (T0). Logged only in the `confidence ≥ threshold` branch. `eh_enqueued_time` (T0 ISO string) is also embedded in the SB message body so the notifier can compute end-to-end.
     - Notification latency: `_log_notification_latency` helper in `notify_crash`, called after all channels complete. Logs `notification_stage_ms` (T2 − T1, where T1 = SB `enqueued_time_utc`) and, when `eh_enqueued_time` is present in the body, `end_to_end_ms` (T2 − T0). Missing timestamps are handled gracefully (warning, no exception).
     - Migration path: if cardinality-aware metric aggregation becomes important, these log lines can be replaced with `AzureMonitorMetricExporter` (OpenTelemetry) without changing any upstream code.
+
+18. **Event Hub inspector consumer: AKS pod, not a Function App.**
+    The consumer maintains a long-lived `EventHubConsumerClient` with a `BlobCheckpointStore` for cooperative partition ownership across instances. The Functions execution model (short-lived invocations triggered per event) is incompatible with this client's connection lifecycle — the client takes several seconds to negotiate partition assignments and establish checkpoint state. Running it as a Function would cold-start on every event, preventing proper load-balancing across partitions.
+
+    AKS is the right tier here for three reasons: (a) the workload is a long-running daemon, not an event handler; (b) HPA on CPU provides horizontal scaling when Event Hub throughput grows; (c) it places an AKS workload alongside the PaaS Functions in the architecture, demonstrating that the platform can host both and that the choice between them is intentional and documented.
+
+    In production the cluster would be private (API server not publicly accessible), with ADO pipeline access via a self-hosted runner on the same VNet. In dev, the API server is public to avoid VPN/bastion complexity.
 
 ## Decisions deliberately left open
 
