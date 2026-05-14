@@ -177,6 +177,57 @@ Numbering is stable — do not renumber. Add new ones at the end.
 
 ---
 
+### #9 — Pod CrashLoopBackOff from missing Key Vault secret
+
+**Scenario:** The `appi-connection-string` secret was not stored in Key Vault (or was deleted/renamed). The CSI driver cannot mount the `secrets-store` volume on startup, the pod fails to start, and enters `CrashLoopBackOff`.
+
+**Implementation hint for Claude Code:**
+- `az keyvault secret delete --vault-name <kv-name> --name appi-connection-string`
+- Or rename it: `az keyvault secret set --vault-name <kv-name> --name appi-conn-str --value placeholder` (old name now absent).
+
+**What "finding the root cause" looks like:**
+- `kubectl get pods -n consumer` → `CrashLoopBackOff` or `ContainerCreating` indefinitely.
+- `kubectl describe pod <name> -n consumer` → volume mount error from the CSI driver.
+- `kubectl get secretproviderclass consumer-secrets -n consumer -o yaml` → `objectName: appi-connection-string` in the spec.
+- `az keyvault secret list --vault-name <kv-name>` → secret is absent or has a different name.
+- Fix: re-create the secret with the correct name.
+
+---
+
+### #10 — Key Vault CSI mount failure from removed RBAC
+
+**Scenario:** The consumer workload identity (`<cluster-name>-consumer-wi`) loses its `Key Vault Secrets User` role assignment (e.g., removed by a `terraform apply` with a state drift or manual deletion). The CSI driver cannot authenticate to Key Vault when the pod schedules.
+
+**Implementation hint for Claude Code:**
+- `az role assignment delete --assignee <consumer-wi-principal-id> --role "Key Vault Secrets User" --scope <kv-id>`
+
+**What "finding the root cause" looks like:**
+- `kubectl describe pod -n consumer` → `MountVolume.SetUp failed ... Forbidden`.
+- Check Key Vault diagnostic logs in Log Analytics: `AzureDiagnostics | where OperationName == "SecretGet" and ResultType == "Forbidden"`.
+- Identify the managed identity: `az identity show --name <cluster-name>-consumer-wi --resource-group <rg> --query principalId -o tsv`.
+- Verify RBAC: `az role assignment list --scope <kv-id> --assignee <principal-id>` → empty.
+- Fix: `terraform apply` restores the role assignment, or add it manually.
+
+---
+
+### #11 — Network policy blocks Event Hubs AMQP port
+
+**Scenario:** The egress `NetworkPolicy` is tightened — port 5671 (AMQP) is removed, leaving only port 443 and DNS. The consumer connects initially but the Azure SDK falls back to AMQP after a WebSocket timeout. The pod appears healthy (no crash), but processes no messages. The App Insights `consumer_started` event appears; `message_received` never does.
+
+**Implementation hint for Claude Code:**
+- Remove port 5671 from the `egress.ports` list in `k8s/consumer/networkpolicy.yaml`.
+- `kubectl apply -f k8s/consumer/networkpolicy.yaml`
+
+**What "finding the root cause" looks like:**
+- `kubectl logs -n consumer -l app=consumer` → `consumer_started` logged, then silence.
+- Event Hub consumer group metrics in Azure Portal → offset not advancing.
+- App Insights traces → no `message_received` events despite simulator running.
+- Connectivity test from inside the pod: `kubectl exec -n consumer <pod> -- python -c "import socket; socket.create_connection(('<eh-ns>.servicebus.windows.net', 5671), 5)"` → times out.
+- `kubectl get networkpolicy -n consumer -o yaml` → port 5671 missing from egress.
+- Fix: add port 5671 back and re-apply.
+
+---
+
 ## State file format
 
 `scripts/.failure-state/current.md`:
