@@ -1,6 +1,6 @@
 application_name      = "guardianlink"
 environment_name      = "prod"
-primary_location      = "westeurope"
+primary_location      = "northeurope"
 new_subscription_name = "guardianlink-prod"
 budget_amount         = 200
 billing_scope_id      = "/providers/Microsoft.Billing/billingAccounts/<account-id>/billingProfiles/<profile-id>/invoiceSections/<section-id>"

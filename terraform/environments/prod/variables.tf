@@ -12,8 +12,8 @@ variable "environment_name" {
 
 variable "primary_location" {
   type        = string
-  default     = "westeurope"
-  description = "Azure region for all workload resources. Must have a mapping in locals.location_short_map."
+  default     = "northeurope"
+  description = "Azure region for all workload resources. Must have a mapping in locals.location_short_map. Switched from westeurope after a Container Apps capacity outage there."
 }
 
 variable "new_subscription_name" {
