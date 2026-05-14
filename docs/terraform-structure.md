@@ -217,9 +217,9 @@ cp terraform.tfvars.example terraform.tfvars
 
 The script prints the new `subscription_id`. Paste it as `TF_VAR_workload_subscription_id` in the `guardianlink-prod` ADO variable group. Subsequent runs (Stages 1 & 2) authenticate via OIDC and don't need Stage 0 again.
 
-### Why prod retains `azurerm_subscription.main` (dev removes it)
+### Why prod mirrors dev's `removed` block pattern
 
-Dev's `subscription.tf` has a `removed` block dropping `azurerm_subscription.main` from state — the subscription was created out-of-band and the SP can't refresh it, so Terraform stops managing it. Prod doesn't carry this constraint because Stage 0 runs with user credentials, so the resource stays in state and the subscription's tags/budgets remain Terraform-managed.
+Stage 0 creates the subscription with the user's own `az login` credentials, then the pipeline takes over for everything inside the subscription. The ADO service principal lacks `Microsoft.Subscription/aliases/*` permissions, so any subsequent pipeline plan that tried to refresh `azurerm_subscription.main` would fail with 401. The `removed` block in `subscription.tf` (same pattern as dev) takes the resource out of Terraform's management surface after the bootstrap — the subscription stays alive in Azure, the pipeline stops touching it, and the workload provider authenticates via `var.workload_subscription_id` only.
 
 ### Pipeline template
 

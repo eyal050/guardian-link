@@ -1,19 +1,24 @@
-# Prod manages its own subscription. First-time deploy:
-#   1. Run ./run.sh stage0 with your own `az login` credentials
-#      (the ADO SP lacks Microsoft.Subscription/aliases/write).
-#   2. Capture the printed subscription_id and set TF_VAR_workload_subscription_id
-#      (or workload_subscription_id in tfvars) for subsequent runs.
-# After Stage 0, the subscription is in state and azurerm.workload uses it
-# directly when var.workload_subscription_id is empty.
-resource "azurerm_subscription" "main" {
-  subscription_name = var.new_subscription_name
-  billing_scope_id  = var.billing_scope_id
-  tags              = local.tags
+# Subscription was created via a one-time Stage 0 bootstrap and lives at
+# var.workload_subscription_id. The ADO SP lacks Microsoft.Subscription/aliases/*
+# permissions, so any pipeline plan that tried to refresh azurerm_subscription.main
+# would fail with 401. The removed block keeps the subscription alive in Azure
+# while taking it out of Terraform's management surface — same pattern as
+# environments/dev.
+#
+# Future fresh deploys: temporarily add a `resource "azurerm_subscription" "main"`
+# block, run with user `az` creds (Microsoft.Subscription/aliases/write), then
+# replace the resource block with this removed block and `terraform state rm`
+# the resource before the next pipeline run.
+removed {
+  from = azurerm_subscription.main
+  lifecycle {
+    destroy = false
+  }
 }
 
 resource "azurerm_management_group_subscription_association" "main" {
   count = var.management_group_id == null ? 0 : 1
 
   management_group_id = var.management_group_id
-  subscription_id     = "/subscriptions/${azurerm_subscription.main.subscription_id}"
+  subscription_id     = "/subscriptions/${var.workload_subscription_id}"
 }
