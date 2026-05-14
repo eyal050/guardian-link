@@ -54,3 +54,33 @@ output "grafana_endpoint" {
   value       = azurerm_dashboard_grafana.main.endpoint
   description = "Azure Managed Grafana HTTPS endpoint."
 }
+
+output "aks_cluster_name" {
+  value       = module.aks.cluster_name
+  description = "AKS cluster name for az aks get-credentials."
+}
+
+output "consumer_identity_client_id" {
+  value       = module.aks.consumer_identity_client_id
+  description = "Client ID annotated on the consumer Kubernetes service account."
+}
+
+output "storage_blob_url" {
+  value       = azurerm_storage_account.main.primary_blob_endpoint
+  description = "Primary blob endpoint for the consumer checkpoint store."
+}
+
+output "eventhub_fqdn" {
+  value       = "${azurerm_eventhub_namespace.main.name}.servicebus.windows.net"
+  description = "Event Hub namespace FQDN for the consumer."
+}
+
+output "eventhub_name" {
+  value       = azurerm_eventhub.telemetry.name
+  description = "Event Hub name (telemetry)."
+}
+
+output "key_vault_name" {
+  value       = azurerm_key_vault.main.name
+  description = "Key Vault name for the CSI driver SecretProviderClass."
+}
