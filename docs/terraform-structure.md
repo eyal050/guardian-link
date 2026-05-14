@@ -228,3 +228,39 @@ Both dev and prod stages are produced by `pipelines/templates/terraform-env.yml`
 ### Deploy-verify-destroy
 
 Prod is not long-lived in this repo's deployment model. The validation pattern is: deploy, run smoke tests against the live stack, then destroy. The destroy stage removes `azurerm_subscription.main` from state before `terraform destroy`, so the subscription itself is preserved (disabled rather than deleted) and the state key remains valid for the next cycle.
+
+### Bootstrap gotchas for a brand-new subscription
+
+These are one-time setup steps that don't live in Terraform — a fresh subscription created by Stage 0 won't deploy cleanly until each is handled:
+
+1. **Resource provider registration.** A new subscription has no resource providers registered. Before the first apply, register every namespace the stack uses:
+   ```bash
+   PROD_SUB=<sub-id>
+   for ns in Microsoft.Dashboard Microsoft.App Microsoft.DocumentDB \
+             Microsoft.DBforPostgreSQL Microsoft.Devices Microsoft.EventHub \
+             Microsoft.ServiceBus Microsoft.EventGrid Microsoft.Web \
+             Microsoft.ContainerRegistry Microsoft.KeyVault Microsoft.Storage \
+             Microsoft.OperationalInsights Microsoft.Insights Microsoft.Authorization \
+             Microsoft.ManagedIdentity Microsoft.Network Microsoft.Resources \
+             Microsoft.Consumption Microsoft.AlertsManagement Microsoft.Communication; do
+     az provider register --subscription "$PROD_SUB" --namespace "$ns"
+   done
+   ```
+   Otherwise Terraform fails with `MissingSubscriptionRegistration` per provider as it encounters them.
+
+2. **ADO service principal RBAC.** The pipeline SP authenticates against the workload subscription via OIDC but has no role until granted. Assign Owner once:
+   ```bash
+   az role assignment create \
+     --assignee-object-id <sp-object-id> --assignee-principal-type ServicePrincipal \
+     --role Owner --scope /subscriptions/$PROD_SUB
+   ```
+
+3. **`Microsoft.Web/Total VMs` quota.** Fresh subscriptions get 0 vCPU quota for App Service Plans — even Consumption (Y1) hits this. Request the quota via the Azure portal: Subscriptions → Quotas → search "App Service" → request +1 in your target region. Until granted, the `azurerm_service_plan.functions` resource fails with `Unauthorized: Operation cannot be completed without additional quota`.
+
+4. **Container Apps regional capacity.** Some regions throttle `Microsoft.App/managedEnvironments` creation (`ManagedEnvironmentCapacityHeavyUsageError` / `AKSCapacityHeavyUsage`). Switching `primary_location` to a different region is usually faster than waiting.
+
+5. **`az` subscription context.** The ADO `AzureCLI@2` task sets the active subscription to the service connection's default (dev). Anywhere the pipeline shells out to `az` against the workload subscription (e.g. `az acr build`), set the context explicitly:
+   ```bash
+   az account set --subscription "$(TF_VAR_workload_subscription_id)"
+   ```
+   This is handled by the template before the ml-stub build step.
