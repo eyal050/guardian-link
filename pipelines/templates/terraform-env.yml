@@ -191,6 +191,9 @@ stages:
                         -input=false -reconfigure
 
                       ACR_NAME=$(terraform output -raw acr_name)
+                      # ACR lives in the workload subscription; the service connection
+                      # defaults to a different sub, so set context before az acr calls.
+                      az account set --subscription "$(TF_VAR_workload_subscription_id)"
                       if ! az acr repository show --name "$ACR_NAME" --image "ml-stub:latest" &>/dev/null; then
                         echo "Building ml-stub image..."
                         az acr build --registry "$ACR_NAME" --image ml-stub:latest ../../../apps/ml-stub/
