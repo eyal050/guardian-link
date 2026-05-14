@@ -11,11 +11,11 @@ resource "azurerm_kubernetes_cluster" "main" {
   workload_identity_enabled = true
 
   default_node_pool {
-    name                = "system"
-    vm_size             = var.vm_size
-    enable_auto_scaling = true
-    min_count           = var.min_node_count
-    max_count           = var.max_node_count
+    name                   = "system"
+    vm_size                = var.vm_size
+    auto_scaling_enabled   = true
+    min_count              = var.min_node_count
+    max_count              = var.max_node_count
   }
 
   identity {
@@ -48,19 +48,15 @@ resource "azurerm_user_assigned_identity" "consumer" {
   tags                = var.tags
 }
 
-# Federated credential: trust tokens issued by this cluster for the named
-# Kubernetes service account. This is the Workload Identity binding —
-# the pod's projected OIDC token is exchangeable for an Entra ID token
-# scoped to this managed identity.
+# Trust the cluster's OIDC issuer to exchange tokens for this managed identity.
 resource "azurerm_federated_identity_credential" "consumer" {
   provider = azurerm.workload
 
-  name                = "consumer-sa-fedcred"
-  resource_group_name = var.resource_group_name
-  parent_id           = azurerm_user_assigned_identity.consumer.id
-  audience            = ["api://AzureADTokenExchange"]
-  issuer              = azurerm_kubernetes_cluster.main.oidc_issuer_url
-  subject             = "system:serviceaccount:${var.consumer_k8s_namespace}:${var.consumer_k8s_service_account}"
+  name                          = "${var.name}-consumer-fedcred"
+  user_assigned_identity_id     = azurerm_user_assigned_identity.consumer.id
+  audience                      = ["api://AzureADTokenExchange"]
+  issuer                        = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject                       = "system:serviceaccount:${var.consumer_k8s_namespace}:${var.consumer_k8s_service_account}"
 }
 
 # AKS kubelet identity needs AcrPull to pull images from ACR without admin creds.
