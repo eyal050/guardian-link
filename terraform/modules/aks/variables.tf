@@ -20,8 +20,8 @@ variable "dns_prefix" {
 
 variable "vm_size" {
   type        = string
-  default     = "Standard_B2s_v2"
-  description = "VM size for the system node pool. _v2 required: the dev subscription's regional SKU policy rejects v1 B-series in westeurope."
+  default     = "Standard_D2s_v6"
+  description = "VM size for the system node pool. Driven by the dev subscription's westeurope quota: B-series v1 is policy-blocked, Bsv2 family has 0 vCPU quota. Dsv6 family has quota available and the SKU is in the allowed list."
 }
 
 variable "min_node_count" {
