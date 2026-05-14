@@ -222,6 +222,18 @@ stages:
                         echo "grafana_data_source.azure_monitor already in state."
                       fi
 
+                      # Container App Environment may exist in Azure but not in state
+                      # if a previous apply errored during the slow CAE polling phase.
+                      CAE_ID="/subscriptions/$(TF_VAR_workload_subscription_id)/resourceGroups/rg-guardianlink-${{ parameters.environment }}/providers/Microsoft.App/managedEnvironments/cae-guardianlink-${{ parameters.environment }}-weu"
+                      if ! terraform state show azurerm_container_app_environment.main > /dev/null 2>&1; then
+                        if az containerapp env show --ids "$CAE_ID" &>/dev/null; then
+                          echo "Importing azurerm_container_app_environment.main..."
+                          terraform import azurerm_container_app_environment.main "$CAE_ID"
+                        fi
+                      else
+                        echo "azurerm_container_app_environment.main already in state."
+                      fi
+
                       CA_ID="/subscriptions/$(TF_VAR_workload_subscription_id)/resourceGroups/rg-guardianlink-${{ parameters.environment }}/providers/Microsoft.App/containerApps/ca-guardianlink-${{ parameters.environment }}-weu-ml-stub"
                       if ! terraform state show azurerm_container_app.ml_stub > /dev/null 2>&1; then
                         if az containerapp show --ids "$CA_ID" &>/dev/null; then
