@@ -171,7 +171,7 @@ stages:
                 PAYLOAD='{"resources":{"repositories":{"self":{"refName":"refs/heads/main"}}}}'
                 # Pipeline IDs: 7=telemetry-writer, 8=crash-classifier,
                 #               9=notifier, 10=metrics, 11=ml-stub
-                for pid in 7 8 9 10 11; do
+                for pid in 7 8 9 10 11 12; do
                   BODY=$(curl -s -u ":${ADO_SETUP_PAT}" \
                     -X POST -H "Content-Type: application/json" \
                     -d "$PAYLOAD" \
