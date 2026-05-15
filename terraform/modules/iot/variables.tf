@@ -13,9 +13,9 @@ variable "resource_group_name" {
   description = "Resource group to deploy into."
 }
 
-variable "eventhub_id" {
+variable "log_analytics_workspace_id" {
   type        = string
-  description = "Resource ID of the telemetry Event Hub. IoT Hub's system identity gets Data Sender on this scope."
+  description = "Log Analytics workspace ID for diagnostic settings."
 }
 
 variable "eventhub_namespace_name" {
@@ -28,9 +28,9 @@ variable "eventhub_name" {
   description = "Event Hub name (entity path for the routing endpoint)."
 }
 
-variable "log_analytics_workspace_id" {
+variable "eventhub_id" {
   type        = string
-  description = "Log Analytics workspace ID for diagnostic settings."
+  description = "Resource ID of the telemetry Event Hub. IoT Hub's system identity gets Data Sender on this scope."
 }
 
 variable "tags" {

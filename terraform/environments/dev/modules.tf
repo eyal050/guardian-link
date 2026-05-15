@@ -80,3 +80,19 @@ module "servicebus" {
   eventhub_name              = module.eventhubs.telemetry_hub_name
   tags                       = local.tags
 }
+
+module "iot" {
+  source = "../../modules/iot"
+  providers = {
+    azurerm.workload = azurerm.workload
+  }
+
+  name_prefix                = local.name_prefix
+  location                   = var.primary_location
+  resource_group_name        = azurerm_resource_group.main.name
+  log_analytics_workspace_id = module.observability.workspace_id
+  eventhub_namespace_name    = module.eventhubs.namespace_name
+  eventhub_name              = module.eventhubs.telemetry_hub_name
+  eventhub_id                = module.eventhubs.telemetry_hub_id
+  tags                       = local.tags
+}

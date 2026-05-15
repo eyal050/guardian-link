@@ -117,3 +117,25 @@ moved {
   from = azurerm_monitor_diagnostic_setting.servicebus_namespace
   to   = module.servicebus.azurerm_monitor_diagnostic_setting.servicebus_namespace
 }
+
+# iot
+moved {
+  from = azurerm_iothub.main
+  to   = module.iot.azurerm_iothub.main
+}
+moved {
+  from = azurerm_role_assignment.iot_to_eh_sender
+  to   = module.iot.azurerm_role_assignment.iot_to_eh_sender
+}
+moved {
+  from = azurerm_iothub_endpoint_eventhub.telemetry
+  to   = module.iot.azurerm_iothub_endpoint_eventhub.telemetry
+}
+moved {
+  from = azurerm_iothub_route.all_to_telemetry
+  to   = module.iot.azurerm_iothub_route.all_to_telemetry
+}
+moved {
+  from = azurerm_monitor_diagnostic_setting.iothub
+  to   = module.iot.azurerm_monitor_diagnostic_setting.iothub
+}
