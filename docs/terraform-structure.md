@@ -128,7 +128,6 @@ Run `terraform plan` after each `state mv` to confirm zero diff before moving on
 | Event Hub partitions | 4 | 4 | 8 |
 | Log retention | 30 days | 30 days | 90 days |
 | Private endpoints | no | no | yes |
-| Grafana | yes | optional | yes |
 | Budget alert | €100/mo | €200/mo | €500/mo |
 | Apply gate | ADO `dev` environment approval | ADO `staging` environment approval | ADO `prod` environment approval + second engineer sign-off |
 

@@ -87,7 +87,6 @@ stages:
                   FUNC_NOT=$(echo "$TF_JSON"       | jq -r '.func_notifier_name.value')
                   FUNC_MET=$(echo "$TF_JSON"       | jq -r '.func_metrics_name.value')
                   CA_ML=$(echo "$TF_JSON"          | jq -r '.container_app_ml_stub_name.value')
-                  GRAFANA_ENDPOINT=$(echo "$TF_JSON"   | jq -r '.grafana_endpoint.value')
                   AKS_NAME=$(echo "$TF_JSON"              | jq -r '.aks_cluster_name.value')
                   CONSUMER_WI_CLIENT_ID=$(echo "$TF_JSON" | jq -r '.consumer_identity_client_id.value')
                   STORAGE_BLOB_URL=$(echo "$TF_JSON"      | jq -r '.storage_blob_url.value')
@@ -105,7 +104,6 @@ stages:
                     --arg tw "$FUNC_TW" --arg cc "$FUNC_CC" \
                     --arg not "$FUNC_NOT" --arg met "$FUNC_MET" \
                     --arg ca "$CA_ML" \
-                    --arg grafana_ep "$GRAFANA_ENDPOINT" \
                     --arg aks_name "$AKS_NAME" \
                     --arg consumer_wi_client_id "$CONSUMER_WI_CLIENT_ID" \
                     --arg storage_blob_url "$STORAGE_BLOB_URL" \
@@ -122,7 +120,6 @@ stages:
                       FUNC_NOTIFIER_NAME:         {value: $not},
                       FUNC_METRICS_NAME:          {value: $met},
                       CONTAINER_APP_ML_STUB_NAME: {value: $ca},
-                      GRAFANA_ENDPOINT:           {value: $grafana_ep},
                       AKS_CLUSTER_NAME:             {value: $aks_name},
                       CONSUMER_IDENTITY_CLIENT_ID:  {value: $consumer_wi_client_id},
                       STORAGE_BLOB_URL:             {value: $storage_blob_url},
@@ -244,11 +241,6 @@ stages:
                           -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
                           -backend-config="key=guardianlink-dev" \
                           -input=false
-                        export GRAFANA_URL="${GRAFANA_ENDPOINT:-https://placeholder.grafana.invalid}"
-                        export GRAFANA_AUTH
-                        GRAFANA_AUTH=$(az account get-access-token \
-                          --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
-                          --query accessToken -o tsv 2>/dev/null || echo "placeholder")
                         terraform destroy -auto-approve -input=false
                     env:
                       TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
@@ -256,7 +248,6 @@ stages:
                       TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
                       TF_VAR_owner: $(TF_VAR_owner)
                       TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
-                      GRAFANA_ENDPOINT: $(GRAFANA_ENDPOINT)
 
     - stage: destroy_prod
       displayName: Destroy Prod
@@ -301,11 +292,6 @@ stages:
                           -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
                           -backend-config="key=guardianlink-prod" \
                           -input=false
-                        export GRAFANA_URL="${GRAFANA_ENDPOINT:-https://placeholder.grafana.invalid}"
-                        export GRAFANA_AUTH
-                        GRAFANA_AUTH=$(az account get-access-token \
-                          --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
-                          --query accessToken -o tsv 2>/dev/null || echo "placeholder")
                         # Exclude azurerm_subscription.main from destroy — keeping the
                         # subscription disabled rather than deleted preserves state-key
                         # validity if prod is later re-deployed.
@@ -317,4 +303,3 @@ stages:
                       TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
                       TF_VAR_owner: $(TF_VAR_owner)
                       TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
-                      GRAFANA_ENDPOINT: $(GRAFANA_ENDPOINT)

@@ -13,6 +13,3 @@ billing_scope_id      = "/providers/Microsoft.Billing/billingAccounts/<account-i
 # First-time deploy: leave workload_subscription_id commented out.
 # Run ./run.sh stage0 to create the subscription, then set this and run ./run.sh apply.
 # workload_subscription_id = "<output of: terraform output -raw subscription_id>"
-
-# Optional: AAD object ID for Grafana Viewer.
-# grafana_viewer_principal_id = "<aad-object-id>"

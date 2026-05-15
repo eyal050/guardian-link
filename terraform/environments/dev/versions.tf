@@ -10,10 +10,6 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.6"
     }
-    grafana = {
-      source  = "grafana/grafana"
-      version = "~> 3.0"
-    }
   }
 
   backend "azurerm" {
@@ -38,11 +34,4 @@ provider "azurerm" {
       prevent_deletion_if_contains_resources = false
     }
   }
-}
-
-# Grafana provider — reads GRAFANA_URL and GRAFANA_AUTH from environment.
-# These are injected by run.sh (local) or the ADO bootstrap task (pipeline).
-# During plan/validate stages, placeholder env vars keep provider init happy.
-provider "grafana" {
-  alias = "managed"
 }

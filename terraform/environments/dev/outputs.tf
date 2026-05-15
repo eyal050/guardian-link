@@ -50,11 +50,6 @@ output "container_app_ml_stub_name" {
   description = "ML stub Container App name."
 }
 
-output "grafana_endpoint" {
-  value       = azurerm_dashboard_grafana.main.endpoint
-  description = "Azure Managed Grafana HTTPS endpoint."
-}
-
 output "aks_cluster_name" {
   value       = module.aks.cluster_name
   description = "AKS cluster name for az aks get-credentials."

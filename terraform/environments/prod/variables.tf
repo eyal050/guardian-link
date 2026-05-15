@@ -62,9 +62,3 @@ variable "alert_email" {
   default     = ""
   description = "Email address for Azure Monitor alert notifications."
 }
-
-variable "grafana_viewer_principal_id" {
-  type        = string
-  default     = null
-  description = "AAD object ID to assign Grafana Viewer role. Optional — omit for solo deployments."
-}

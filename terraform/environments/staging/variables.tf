@@ -25,9 +25,3 @@ variable "owner" {
   default     = ""
   description = "Owner tag value."
 }
-
-variable "grafana_viewer_principal_id" {
-  type        = string
-  default     = null
-  description = "AAD object ID for Grafana Viewer role. Optional."
-}

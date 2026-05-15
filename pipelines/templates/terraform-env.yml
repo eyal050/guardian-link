@@ -1,7 +1,9 @@
 # pipelines/templates/terraform-env.yml
 # Reusable Terraform stage template, called once per environment by infra.yml.
 #
-# Three stages produced: validate (env-scoped), plan, apply (two-stage Grafana).
+# Three stages produced: validate (env-scoped), plan, apply.
+# Apply runs in two steps: ACR + ml-stub image build (needed before the
+# Container App resource can be created), then full apply.
 # Approval gates and variable groups are injected via parameters.
 parameters:
   - name: environment
@@ -51,9 +53,6 @@ stages:
                 terraform init -backend=false -input=false
                 terraform fmt -check -recursive
                 terraform validate
-            env:
-              GRAFANA_URL: "https://placeholder.grafana.invalid"
-              GRAFANA_AUTH: "placeholder"
 
   - stage: plan_${{ parameters.environment }}
     displayName: Plan ${{ parameters.environment }} (review)
@@ -93,12 +92,6 @@ stages:
                   -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
                   -backend-config="key=${{ parameters.stateKey }}" \
                   -input=false
-                GRAFANA_URL="${GRAFANA_ENDPOINT:-https://placeholder.grafana.invalid}"
-                export GRAFANA_URL
-                export GRAFANA_AUTH
-                GRAFANA_AUTH=$(az account get-access-token \
-                  --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
-                  --query accessToken -o tsv 2>/dev/null || echo "placeholder")
                 terraform plan -input=false
             env:
               TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
@@ -106,7 +99,6 @@ stages:
               TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
               TF_VAR_owner: $(TF_VAR_owner)
               TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
-              GRAFANA_ENDPOINT: $(GRAFANA_ENDPOINT)
 
   - stage: apply_${{ parameters.environment }}
     displayName: Apply ${{ parameters.environment }}
@@ -118,7 +110,7 @@ stages:
       - group: guardianlink-infra-outputs
     jobs:
       - deployment: apply
-        displayName: terraform apply (two-stage Grafana)
+        displayName: terraform apply
         environment: ${{ parameters.adoEnvironment }}
         pool:
           vmImage: ubuntu-latest
@@ -131,7 +123,7 @@ stages:
                 - template: steps/install-terraform.yml
 
                 - task: AzureCLI@2
-                  displayName: "Stage 1 — Grafana + role assignments + ACR"
+                  displayName: "Stage 1 — pre-create ACR"
                   inputs:
                     azureSubscription: guardianlink-azure
                     scriptType: bash
@@ -153,10 +145,6 @@ stages:
                         -backend-config="key=${{ parameters.stateKey }}" \
                         -input=false
                       terraform apply -auto-approve -input=false \
-                        -target=azurerm_dashboard_grafana.main \
-                        -target=azurerm_role_assignment.grafana_admin \
-                        -target=azurerm_role_assignment.grafana_viewer \
-                        -target=azurerm_role_assignment.grafana_mon_reader \
                         -target=azurerm_container_registry.main
                   env:
                     TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
@@ -164,8 +152,6 @@ stages:
                     TF_VAR_budget_contact_email: $(TF_VAR_budget_contact_email)
                     TF_VAR_owner: $(TF_VAR_owner)
                     TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
-                    GRAFANA_URL: "https://placeholder.grafana.invalid"
-                    GRAFANA_AUTH: "placeholder"
 
                 - task: AzureCLI@2
                   displayName: "Build ml-stub image + import orphaned resources"
@@ -199,27 +185,6 @@ stages:
                         az acr build --registry "$ACR_NAME" --image ml-stub:latest ../../../apps/ml-stub/
                       else
                         echo "ml-stub:latest already in ACR, skipping build."
-                      fi
-
-                      export GRAFANA_URL
-                      GRAFANA_URL=$(terraform output -raw grafana_endpoint)
-                      export GRAFANA_AUTH
-                      GRAFANA_AUTH=$(az account get-access-token \
-                        --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
-                        --query accessToken -o tsv)
-                      terraform init \
-                        -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
-                        -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
-                        -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
-                        -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
-                        -backend-config="key=${{ parameters.stateKey }}" \
-                        -input=false -reconfigure
-
-                      if ! terraform state show grafana_data_source.azure_monitor > /dev/null 2>&1; then
-                        echo "Importing grafana_data_source.azure_monitor..."
-                        terraform import grafana_data_source.azure_monitor azure-monitor-oob
-                      else
-                        echo "grafana_data_source.azure_monitor already in state."
                       fi
 
                       # Container App Environment may exist in Azure but not in state
@@ -272,14 +237,6 @@ stages:
                         -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
                         -backend-config="key=${{ parameters.stateKey }}" \
                         -input=false -reconfigure
-                      echo "Waiting 30s for role assignment propagation..."
-                      sleep 30
-                      export GRAFANA_URL
-                      GRAFANA_URL=$(terraform output -raw grafana_endpoint)
-                      export GRAFANA_AUTH
-                      GRAFANA_AUTH=$(az account get-access-token \
-                        --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
-                        --query accessToken -o tsv)
                       terraform apply -auto-approve -input=false
                   env:
                     TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)

@@ -9,7 +9,3 @@ billing_scope_id      = "/providers/Microsoft.Billing/billingAccounts/<account-i
 # management_group_id  = "/providers/Microsoft.Management/managementGroups/<mg-name>"
 # budget_contact_email = "you@example.com"
 # owner                = "you@example.com"
-
-# Optional: AAD object ID of the on-call reader (Grafana Viewer role).
-# Leave commented out for solo deployments.
-# grafana_viewer_principal_id = "<aad-object-id>"

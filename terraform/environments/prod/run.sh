@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 # Wrapper around `terraform` for the prod environment.
 #
-# Modes:
-#   ./run.sh apply     — Stage 1 (Grafana) + Stage 2 (everything)
-#   ./run.sh <command> — passthrough (plan, destroy, output, state, ...)
-#
 # Prod's subscription was created via a one-time Stage 0 bootstrap (manually,
 # with user `az` creds for Microsoft.Subscription/aliases/write) and is now
 # referenced via TF_VAR_workload_subscription_id only. To bootstrap a fresh
@@ -28,29 +24,4 @@ terraform init \
 
 az account list --refresh >/dev/null
 
-COMMAND="${1:-}"
-
-if [ "$COMMAND" = "apply" ]; then
-  shift
-
-  terraform apply \
-    -target=azurerm_dashboard_grafana.main \
-    -target=azurerm_role_assignment.grafana_admin \
-    -target=azurerm_role_assignment.grafana_viewer \
-    -target=azurerm_role_assignment.grafana_mon_reader \
-    "$@"
-
-  echo "Waiting 30s for role assignment propagation..."
-  sleep 30
-
-  export GRAFANA_URL
-  GRAFANA_URL=$(terraform output -raw grafana_endpoint)
-  export GRAFANA_AUTH
-  GRAFANA_AUTH=$(az account get-access-token \
-    --resource ce34e7e5-485f-4d76-964f-b3d2b16d1e4f \
-    --query accessToken -o tsv)
-
-  terraform apply "$@"
-else
-  terraform "$@"
-fi
+terraform "$@"
