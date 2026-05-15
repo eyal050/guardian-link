@@ -11,13 +11,13 @@
 resource "azurerm_linux_function_app" "crash_classifier" {
   provider = azurerm.workload
 
-  name                = "func-${local.name_prefix}-crash-classifier"
-  location            = var.primary_location
-  resource_group_name = azurerm_resource_group.main.name
-  service_plan_id     = module.functions.service_plan_id
+  name                = "func-${var.name_prefix}-crash-classifier"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  service_plan_id     = var.service_plan_id
 
-  storage_account_name       = module.storage.main_name
-  storage_account_access_key = module.storage.main_primary_access_key
+  storage_account_name       = var.storage_account_name
+  storage_account_access_key = var.storage_account_primary_access_key
 
   identity {
     type = "SystemAssigned"
@@ -28,14 +28,14 @@ resource "azurerm_linux_function_app" "crash_classifier" {
       python_version = "3.10"
     }
 
-    application_insights_connection_string = module.observability.app_insights_connection_string
+    application_insights_connection_string = var.app_insights_connection_string
   }
 
   app_settings = {
     # EH identity-based trigger connection — same namespace as the writer
     # but the function body reads the 'crash-classifier' consumer group
     # (declared in function_app.py, must match the TF consumer group resource).
-    "EH_TELEMETRY__fullyQualifiedNamespace" = "${module.eventhubs.namespace_name}.servicebus.windows.net"
+    "EH_TELEMETRY__fullyQualifiedNamespace" = "${var.eventhub_namespace_name}.servicebus.windows.net"
     "EH_TELEMETRY__credential"              = "managedidentity"
 
     "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
@@ -44,16 +44,16 @@ resource "azurerm_linux_function_app" "crash_classifier" {
     # Cosmos — read-only: the classifier fetches the telemetry window before
     # calling the ML endpoint. Auth is AAD via the MI's Data Reader role
     # (cosmos.tf has local_authentication_disabled=true).
-    "COSMOS_ENDPOINT"  = module.cosmos.account_endpoint
-    "COSMOS_DATABASE"  = module.cosmos.database_name
-    "COSMOS_CONTAINER" = module.cosmos.telemetry_container_name
+    "COSMOS_ENDPOINT"  = var.cosmos_account_endpoint
+    "COSMOS_DATABASE"  = var.cosmos_database_name
+    "COSMOS_CONTAINER" = var.cosmos_telemetry_container_name
 
     # Service Bus sender — identity-based. The MI has Azure Service Bus Data
     # Sender scoped to the crash-confirmed queue (classifier_to_sb_sender below).
     # SB_NAMESPACE_FQDN is passed as a plain env var; the SDK's ServiceBusClient
     # takes fully_qualified_namespace directly (not the trigger __credential pattern).
-    "SB_NAMESPACE_FQDN" = "${module.servicebus.namespace_name}.servicebus.windows.net"
-    "SB_CRASH_QUEUE"    = module.servicebus.queue_name
+    "SB_NAMESPACE_FQDN" = "${var.servicebus_namespace_name}.servicebus.windows.net"
+    "SB_CRASH_QUEUE"    = var.servicebus_queue_name
 
     # Threshold and window size as config so they can be tuned without a redeploy.
     # 0.9 = architecture decision #11 (tolerate 10% false positives until model improves).
@@ -63,7 +63,7 @@ resource "azurerm_linux_function_app" "crash_classifier" {
     # ML stub Container App — see ml-stub.tf.
     # Pointing at /classify on the Container App; the Function's _call_ml()
     # falls back to the hardcoded stub only when this is empty.
-    "ML_ENDPOINT_URL" = "https://${module.ml_stub.ml_stub_fqdn}/classify"
+    "ML_ENDPOINT_URL" = "https://${var.ml_stub_fqdn}/classify"
   }
 
   lifecycle {
@@ -72,7 +72,7 @@ resource "azurerm_linux_function_app" "crash_classifier" {
     ]
   }
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # EH Data Receiver — same hub as the writer, separate consumer group tracks
@@ -80,7 +80,7 @@ resource "azurerm_linux_function_app" "crash_classifier" {
 resource "azurerm_role_assignment" "classifier_to_eh_receiver" {
   provider = azurerm.workload
 
-  scope                = module.eventhubs.telemetry_hub_id
+  scope                = var.telemetry_hub_id
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = azurerm_linux_function_app.crash_classifier.identity[0].principal_id
 }
@@ -93,13 +93,13 @@ resource "random_uuid" "cosmos_classifier_role_assignment" {}
 resource "azurerm_cosmosdb_sql_role_assignment" "classifier_to_cosmos_reader" {
   provider = azurerm.workload
 
-  resource_group_name = azurerm_resource_group.main.name
-  account_name        = module.cosmos.account_name
+  resource_group_name = var.resource_group_name
+  account_name        = var.cosmos_account_name
   name                = random_uuid.cosmos_classifier_role_assignment.result
 
-  role_definition_id = "${module.cosmos.account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000001"
+  role_definition_id = "${var.cosmos_account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000001"
   principal_id       = azurerm_linux_function_app.crash_classifier.identity[0].principal_id
-  scope              = module.cosmos.account_id
+  scope              = var.cosmos_account_id
 }
 
 # Service Bus Data Sender scoped to the specific queue — not the namespace.
@@ -107,7 +107,7 @@ resource "azurerm_cosmosdb_sql_role_assignment" "classifier_to_cosmos_reader" {
 resource "azurerm_role_assignment" "classifier_to_sb_sender" {
   provider = azurerm.workload
 
-  scope                = module.servicebus.queue_id
+  scope                = var.servicebus_queue_id
   role_definition_name = "Azure Service Bus Data Sender"
   principal_id         = azurerm_linux_function_app.crash_classifier.identity[0].principal_id
 }
@@ -115,9 +115,9 @@ resource "azurerm_role_assignment" "classifier_to_sb_sender" {
 resource "azurerm_monitor_diagnostic_setting" "functions_classifier" {
   provider = azurerm.workload
 
-  name                       = "diag-func-${local.name_prefix}-classifier"
+  name                       = "diag-func-${var.name_prefix}-classifier"
   target_resource_id         = azurerm_linux_function_app.crash_classifier.id
-  log_analytics_workspace_id = module.observability.workspace_id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
 
   enabled_log {
     category = "FunctionAppLogs"

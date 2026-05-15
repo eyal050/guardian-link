@@ -231,3 +231,29 @@ moved {
   from = azurerm_monitor_diagnostic_setting.functions_writer
   to   = module.functions.azurerm_monitor_diagnostic_setting.functions_writer
 }
+
+# crash-classifier
+moved {
+  from = azurerm_linux_function_app.crash_classifier
+  to   = module.crash_classifier.azurerm_linux_function_app.crash_classifier
+}
+moved {
+  from = azurerm_role_assignment.classifier_to_eh_receiver
+  to   = module.crash_classifier.azurerm_role_assignment.classifier_to_eh_receiver
+}
+moved {
+  from = random_uuid.cosmos_classifier_role_assignment
+  to   = module.crash_classifier.random_uuid.cosmos_classifier_role_assignment
+}
+moved {
+  from = azurerm_cosmosdb_sql_role_assignment.classifier_to_cosmos_reader
+  to   = module.crash_classifier.azurerm_cosmosdb_sql_role_assignment.classifier_to_cosmos_reader
+}
+moved {
+  from = azurerm_role_assignment.classifier_to_sb_sender
+  to   = module.crash_classifier.azurerm_role_assignment.classifier_to_sb_sender
+}
+moved {
+  from = azurerm_monitor_diagnostic_setting.functions_classifier
+  to   = module.crash_classifier.azurerm_monitor_diagnostic_setting.functions_classifier
+}

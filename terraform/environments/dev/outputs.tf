@@ -31,7 +31,7 @@ output "func_telemetry_writer_name" {
 }
 
 output "func_crash_classifier_name" {
-  value       = azurerm_linux_function_app.crash_classifier.name
+  value       = module.crash_classifier.name
   description = "Crash classifier Function App name."
 }
 
