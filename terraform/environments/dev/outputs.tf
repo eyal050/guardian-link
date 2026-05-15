@@ -1,16 +1,16 @@
 output "postgres_fqdn" {
-  value       = azurerm_postgresql_flexible_server.main.fqdn
+  value       = module.postgres.fqdn
   description = "Postgres Flexible Server FQDN for migration scripts."
 }
 
 output "postgres_admin_password" {
-  value       = random_password.postgres_admin.result
+  value       = module.postgres.admin_password
   sensitive   = true
   description = "Postgres admin password (sensitive)."
 }
 
 output "postgres_notifier_password" {
-  value       = random_password.postgres_notifier.result
+  value       = module.postgres.notifier_password
   sensitive   = true
   description = "Postgres notifier app-user password (sensitive)."
 }

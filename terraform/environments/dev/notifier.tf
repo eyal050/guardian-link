@@ -83,15 +83,15 @@ resource "azurerm_linux_function_app" "notifier" {
     # Key Vault references — resolved at runtime by the Function host once
     # notifier_to_kv_secrets_user RBAC propagates (30–60s after apply).
     "ACS_CONNECTION_STRING" = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.acs_connection_string.id})"
-    "POSTGRES_PASSWORD"     = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.postgres_notifier_password.id})"
+    "POSTGRES_PASSWORD"     = "@Microsoft.KeyVault(SecretUri=${module.postgres.notifier_password_secret_id})"
 
     # Set manually after apply (see post-apply checklist in the plan).
     "ACS_SENDER_PHONE" = "REPLACE_ME"
     "ACS_SENDER_EMAIL" = "REPLACE_ME"
 
-    "POSTGRES_HOST" = azurerm_postgresql_flexible_server.main.fqdn
+    "POSTGRES_HOST" = module.postgres.fqdn
     "POSTGRES_USER" = "notifier"
-    "POSTGRES_DB"   = azurerm_postgresql_flexible_server_database.guardianlink.name
+    "POSTGRES_DB"   = module.postgres.database_name
   }
 
   lifecycle {

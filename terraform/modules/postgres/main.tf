@@ -2,6 +2,13 @@
 # B_Standard_B1ms is the cheapest Flexible Server SKU — 1 vCore, 2 GiB RAM.
 # Destroyed nightly so HA and geo-redundant backups are not needed.
 
+# terraform_data shim: forwards the keyvault module's role-assignment id so
+# the KV-secret resources below can depends_on it without a direct cross-
+# module reference (modules cannot depends_on each other directly).
+resource "terraform_data" "kv_role_dependency" {
+  input = var.key_vault_operator_role_assignment_id
+}
+
 resource "random_password" "postgres_admin" {
   length           = 32
   special          = true
@@ -18,26 +25,26 @@ resource "azurerm_key_vault_secret" "postgres_admin_password" {
   provider     = azurerm.workload
   name         = "postgres-admin-password"
   value        = random_password.postgres_admin.result
-  key_vault_id = module.keyvault.id
+  key_vault_id = var.key_vault_id
 
-  # depends_on removed during keyvault extraction; restored when postgres is modulized in Task 9 via terraform_data shim
+  depends_on = [terraform_data.kv_role_dependency]
 }
 
 resource "azurerm_key_vault_secret" "postgres_notifier_password" {
   provider     = azurerm.workload
   name         = "postgres-notifier-password"
   value        = random_password.postgres_notifier.result
-  key_vault_id = module.keyvault.id
+  key_vault_id = var.key_vault_id
 
-  # depends_on removed during keyvault extraction; restored when postgres is modulized in Task 9 via terraform_data shim
+  depends_on = [terraform_data.kv_role_dependency]
 }
 
 resource "azurerm_postgresql_flexible_server" "main" {
   provider = azurerm.workload
 
-  name                = "psql-${local.name_prefix}"
-  location            = var.primary_location
-  resource_group_name = azurerm_resource_group.main.name
+  name                = "psql-${var.name_prefix}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
 
   sku_name   = "B_Standard_B1ms"
   storage_mb = 32768
@@ -59,7 +66,7 @@ resource "azurerm_postgresql_flexible_server" "main" {
     ignore_changes = [zone]
   }
 
-  tags = local.tags
+  tags = var.tags
 }
 
 resource "azurerm_postgresql_flexible_server_database" "guardianlink" {

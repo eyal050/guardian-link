@@ -149,3 +149,37 @@ moved {
   from = azurerm_monitor_diagnostic_setting.eventgrid_lifecycle
   to   = module.eventgrid.azurerm_monitor_diagnostic_setting.eventgrid_lifecycle
 }
+
+# postgres
+moved {
+  from = random_password.postgres_admin
+  to   = module.postgres.random_password.postgres_admin
+}
+moved {
+  from = random_password.postgres_notifier
+  to   = module.postgres.random_password.postgres_notifier
+}
+moved {
+  from = azurerm_key_vault_secret.postgres_admin_password
+  to   = module.postgres.azurerm_key_vault_secret.postgres_admin_password
+}
+moved {
+  from = azurerm_key_vault_secret.postgres_notifier_password
+  to   = module.postgres.azurerm_key_vault_secret.postgres_notifier_password
+}
+moved {
+  from = azurerm_postgresql_flexible_server.main
+  to   = module.postgres.azurerm_postgresql_flexible_server.main
+}
+moved {
+  from = azurerm_postgresql_flexible_server_database.guardianlink
+  to   = module.postgres.azurerm_postgresql_flexible_server_database.guardianlink
+}
+moved {
+  from = azurerm_postgresql_flexible_server_firewall_rule.azure_services
+  to   = module.postgres.azurerm_postgresql_flexible_server_firewall_rule.azure_services
+}
+moved {
+  from = azurerm_postgresql_flexible_server_firewall_rule.dev_all
+  to   = module.postgres.azurerm_postgresql_flexible_server_firewall_rule.dev_all
+}
