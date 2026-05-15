@@ -46,9 +46,13 @@ output "func_metrics_name" {
 }
 
 output "container_app_ml_stub_name" {
-  value       = azurerm_container_app.ml_stub.name
+  value       = module.ml_stub.container_app_name
   description = "ML stub Container App name."
 }
+
+output "acr_login_server" { value = module.ml_stub.acr_login_server }
+output "acr_name"         { value = module.ml_stub.acr_name }
+output "ml_stub_fqdn"     { value = module.ml_stub.ml_stub_fqdn }
 
 output "aks_cluster_name" {
   value       = module.aks.cluster_name

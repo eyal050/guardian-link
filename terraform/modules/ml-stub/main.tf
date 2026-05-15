@@ -24,25 +24,25 @@
 resource "azurerm_container_registry" "main" {
   provider = azurerm.workload
 
-  name                = "acr${replace(local.name_prefix, "-", "")}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = var.primary_location
+  name                = "acr${replace(var.name_prefix, "-", "")}"
+  resource_group_name = var.resource_group_name
+  location            = var.location
   sku                 = "Basic"
   admin_enabled       = true
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # Container App Environment — Consumption workload profile (no dedicated infra).
 resource "azurerm_container_app_environment" "main" {
   provider = azurerm.workload
 
-  name                       = "cae-${local.name_prefix}"
-  location                   = var.primary_location
-  resource_group_name        = azurerm_resource_group.main.name
-  log_analytics_workspace_id = module.observability.workspace_id
+  name                       = "cae-${var.name_prefix}"
+  location                   = var.location
+  resource_group_name        = var.resource_group_name
+  log_analytics_workspace_id = var.log_analytics_workspace_id
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # ML stub — always at least 1 replica so the classifier never cold-calls a
@@ -50,9 +50,9 @@ resource "azurerm_container_app_environment" "main" {
 resource "azurerm_container_app" "ml_stub" {
   provider = azurerm.workload
 
-  name                         = "ca-${local.name_prefix}-ml-stub"
+  name                         = "ca-${var.name_prefix}-ml-stub"
   container_app_environment_id = azurerm_container_app_environment.main.id
-  resource_group_name          = azurerm_resource_group.main.name
+  resource_group_name          = var.resource_group_name
   revision_mode                = "Single"
 
   registry {
@@ -96,17 +96,5 @@ resource "azurerm_container_app" "ml_stub" {
     ]
   }
 
-  tags = local.tags
-}
-
-output "acr_login_server" {
-  value = azurerm_container_registry.main.login_server
-}
-
-output "acr_name" {
-  value = azurerm_container_registry.main.name
-}
-
-output "ml_stub_fqdn" {
-  value = azurerm_container_app.ml_stub.latest_revision_fqdn
+  tags = var.tags
 }

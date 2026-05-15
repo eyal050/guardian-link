@@ -63,7 +63,7 @@ resource "azurerm_linux_function_app" "crash_classifier" {
     # ML stub Container App — see ml-stub.tf.
     # Pointing at /classify on the Container App; the Function's _call_ml()
     # falls back to the hardcoded stub only when this is empty.
-    "ML_ENDPOINT_URL" = "https://${azurerm_container_app.ml_stub.latest_revision_fqdn}/classify"
+    "ML_ENDPOINT_URL" = "https://${module.ml_stub.ml_stub_fqdn}/classify"
   }
 
   lifecycle {

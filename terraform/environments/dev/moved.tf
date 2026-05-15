@@ -183,3 +183,17 @@ moved {
   from = azurerm_postgresql_flexible_server_firewall_rule.dev_all
   to   = module.postgres.azurerm_postgresql_flexible_server_firewall_rule.dev_all
 }
+
+# ml-stub
+moved {
+  from = azurerm_container_registry.main
+  to   = module.ml_stub.azurerm_container_registry.main
+}
+moved {
+  from = azurerm_container_app_environment.main
+  to   = module.ml_stub.azurerm_container_app_environment.main
+}
+moved {
+  from = azurerm_container_app.ml_stub
+  to   = module.ml_stub.azurerm_container_app.ml_stub
+}

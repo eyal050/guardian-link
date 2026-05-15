@@ -123,3 +123,16 @@ module "postgres" {
   key_vault_operator_role_assignment_id = module.keyvault.operator_secrets_officer_role_assignment_id
   tags                                  = local.tags
 }
+
+module "ml_stub" {
+  source = "../../modules/ml-stub"
+  providers = {
+    azurerm.workload = azurerm.workload
+  }
+
+  name_prefix                = local.name_prefix
+  location                   = var.primary_location
+  resource_group_name        = azurerm_resource_group.main.name
+  log_analytics_workspace_id = module.observability.workspace_id
+  tags                       = local.tags
+}

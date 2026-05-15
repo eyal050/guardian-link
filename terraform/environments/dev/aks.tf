@@ -10,7 +10,7 @@ module "aks" {
   location                   = var.primary_location
   dns_prefix                 = "${var.application_name}-${var.environment_name}"
   key_vault_id               = module.keyvault.id
-  acr_id                     = azurerm_container_registry.main.id
+  acr_id                     = module.ml_stub.acr_id
   log_analytics_workspace_id = module.observability.workspace_id
   tags                       = local.tags
 }
