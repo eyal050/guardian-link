@@ -36,7 +36,7 @@ output "func_crash_classifier_name" {
 }
 
 output "func_notifier_name" {
-  value       = azurerm_linux_function_app.notifier.name
+  value       = module.notifier.name
   description = "Notifier Function App name."
 }
 

@@ -1,22 +1,30 @@
+# Cross-module depends_on workaround: Terraform doesn't allow depends_on on
+# variables directly. Wrapping the upstream KV-operator role-assignment ID in
+# a terraform_data resource gives the secret write something to depend on,
+# guaranteeing the role exists before the secret POST.
+resource "terraform_data" "kv_role_dependency" {
+  input = var.key_vault_operator_role_assignment_id
+}
+
 # Azure Communication Services: provides both SMS and email in a single
 # resource. Connection string auth (via Key Vault) is used instead of
 # MI auth — ACS does not expose granular data-plane RBAC roles for SMS
 # sending that the Functions SDK can consume transparently.
 resource "azurerm_communication_service" "main" {
   provider            = azurerm.workload
-  name                = "acs-${local.name_prefix}"
-  resource_group_name = azurerm_resource_group.main.name
+  name                = "acs-${var.name_prefix}"
+  resource_group_name = var.resource_group_name
   data_location       = "Europe"
-  tags                = local.tags
+  tags                = var.tags
 }
 
 # ACS Email Service: separate resource required for the email capability.
 resource "azurerm_email_communication_service" "main" {
   provider            = azurerm.workload
-  name                = "acs-email-${local.name_prefix}"
-  resource_group_name = azurerm_resource_group.main.name
+  name                = "acs-email-${var.name_prefix}"
+  resource_group_name = var.resource_group_name
   data_location       = "Europe"
-  tags                = local.tags
+  tags                = var.tags
 }
 
 # Managed Azure domain (*.azurecomm.net). No custom domain needed in dev.
@@ -27,7 +35,7 @@ resource "azurerm_email_communication_service_domain" "azure_managed" {
   name              = "AzureManagedDomain"
   email_service_id  = azurerm_email_communication_service.main.id
   domain_management = "AzureManaged"
-  tags              = local.tags
+  tags              = var.tags
 }
 
 # ACS connection string in Key Vault. The notifier resolves this via a
@@ -36,9 +44,9 @@ resource "azurerm_key_vault_secret" "acs_connection_string" {
   provider     = azurerm.workload
   name         = "acs-connection-string"
   value        = azurerm_communication_service.main.primary_connection_string
-  key_vault_id = module.keyvault.id
+  key_vault_id = var.key_vault_id
 
-  # depends_on removed during keyvault extraction; restored when notifier is modulized in Task 14 via terraform_data shim
+  depends_on = [terraform_data.kv_role_dependency]
 }
 
 # Notifier Function App. Shares the existing Consumption Y1 plan —
@@ -47,13 +55,13 @@ resource "azurerm_key_vault_secret" "acs_connection_string" {
 resource "azurerm_linux_function_app" "notifier" {
   provider = azurerm.workload
 
-  name                = "func-${local.name_prefix}-notifier"
-  location            = var.primary_location
-  resource_group_name = azurerm_resource_group.main.name
-  service_plan_id     = module.functions.service_plan_id
+  name                = "func-${var.name_prefix}-notifier"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  service_plan_id     = var.service_plan_id
 
-  storage_account_name       = module.storage.main_name
-  storage_account_access_key = module.storage.main_primary_access_key
+  storage_account_name       = var.storage_account_name
+  storage_account_access_key = var.storage_account_primary_access_key
 
   identity {
     type = "SystemAssigned"
@@ -63,35 +71,35 @@ resource "azurerm_linux_function_app" "notifier" {
     application_stack {
       python_version = "3.10"
     }
-    application_insights_connection_string = module.observability.app_insights_connection_string
+    application_insights_connection_string = var.app_insights_connection_string
   }
 
   app_settings = {
     # SB identity-based trigger. 'SB_NAMESPACE' is the connection name
     # referenced in the @app.service_bus_queue_trigger decorator.
-    "SB_NAMESPACE__fullyQualifiedNamespace" = "${module.servicebus.namespace_name}.servicebus.windows.net"
+    "SB_NAMESPACE__fullyQualifiedNamespace" = "${var.servicebus_namespace_name}.servicebus.windows.net"
     "SB_NAMESPACE__credential"              = "managedidentity"
-    "SB_CRASH_QUEUE"                        = module.servicebus.queue_name
+    "SB_CRASH_QUEUE"                        = var.servicebus_queue_name
 
     "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
     "AzureWebJobsFeatureFlags"       = "EnableWorkerIndexing"
 
-    "COSMOS_ENDPOINT"                = module.cosmos.account_endpoint
-    "COSMOS_DATABASE"                = module.cosmos.database_name
-    "COSMOS_NOTIFICATIONS_CONTAINER" = module.cosmos.notifications_container_name
+    "COSMOS_ENDPOINT"                = var.cosmos_account_endpoint
+    "COSMOS_DATABASE"                = var.cosmos_database_name
+    "COSMOS_NOTIFICATIONS_CONTAINER" = var.cosmos_notifications_container_name
 
     # Key Vault references — resolved at runtime by the Function host once
     # notifier_to_kv_secrets_user RBAC propagates (30–60s after apply).
     "ACS_CONNECTION_STRING" = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.acs_connection_string.id})"
-    "POSTGRES_PASSWORD"     = "@Microsoft.KeyVault(SecretUri=${module.postgres.notifier_password_secret_id})"
+    "POSTGRES_PASSWORD"     = "@Microsoft.KeyVault(SecretUri=${var.postgres_notifier_password_secret_id})"
 
     # Set manually after apply (see post-apply checklist in the plan).
     "ACS_SENDER_PHONE" = "REPLACE_ME"
     "ACS_SENDER_EMAIL" = "REPLACE_ME"
 
-    "POSTGRES_HOST" = module.postgres.fqdn
+    "POSTGRES_HOST" = var.postgres_fqdn
     "POSTGRES_USER" = "notifier"
-    "POSTGRES_DB"   = module.postgres.database_name
+    "POSTGRES_DB"   = var.postgres_database_name
   }
 
   lifecycle {
@@ -103,14 +111,14 @@ resource "azurerm_linux_function_app" "notifier" {
     ]
   }
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # SB Data Receiver scoped to the specific queue (not the namespace).
 resource "azurerm_role_assignment" "notifier_to_sb_receiver" {
   provider = azurerm.workload
 
-  scope                = module.servicebus.queue_id
+  scope                = var.servicebus_queue_id
   role_definition_name = "Azure Service Bus Data Receiver"
   principal_id         = azurerm_linux_function_app.notifier.identity[0].principal_id
 }
@@ -122,13 +130,13 @@ resource "random_uuid" "cosmos_notifier_role_assignment" {}
 resource "azurerm_cosmosdb_sql_role_assignment" "notifier_to_cosmos_contributor" {
   provider = azurerm.workload
 
-  resource_group_name = azurerm_resource_group.main.name
-  account_name        = module.cosmos.account_name
+  resource_group_name = var.resource_group_name
+  account_name        = var.cosmos_account_name
   name                = random_uuid.cosmos_notifier_role_assignment.result
 
-  role_definition_id = "${module.cosmos.account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
+  role_definition_id = "${var.cosmos_account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
   principal_id       = azurerm_linux_function_app.notifier.identity[0].principal_id
-  scope              = module.cosmos.account_id
+  scope              = var.cosmos_account_id
 }
 
 # Key Vault Secrets User — allows the Function host to resolve
@@ -136,7 +144,7 @@ resource "azurerm_cosmosdb_sql_role_assignment" "notifier_to_cosmos_contributor"
 resource "azurerm_role_assignment" "notifier_to_kv_secrets_user" {
   provider = azurerm.workload
 
-  scope                = module.keyvault.id
+  scope                = var.key_vault_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_linux_function_app.notifier.identity[0].principal_id
 }
@@ -144,9 +152,9 @@ resource "azurerm_role_assignment" "notifier_to_kv_secrets_user" {
 resource "azurerm_monitor_diagnostic_setting" "functions_notifier" {
   provider = azurerm.workload
 
-  name                       = "diag-func-${local.name_prefix}-notifier"
+  name                       = "diag-func-${var.name_prefix}-notifier"
   target_resource_id         = azurerm_linux_function_app.notifier.id
-  log_analytics_workspace_id = module.observability.workspace_id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
 
   enabled_log {
     category = "FunctionAppLogs"

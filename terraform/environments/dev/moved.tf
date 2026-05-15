@@ -275,3 +275,45 @@ moved {
   from = azurerm_monitor_diagnostic_setting.functions_metrics
   to   = module.metrics.azurerm_monitor_diagnostic_setting.functions_metrics
 }
+
+# notifier
+moved {
+  from = azurerm_communication_service.main
+  to   = module.notifier.azurerm_communication_service.main
+}
+moved {
+  from = azurerm_email_communication_service.main
+  to   = module.notifier.azurerm_email_communication_service.main
+}
+moved {
+  from = azurerm_email_communication_service_domain.azure_managed
+  to   = module.notifier.azurerm_email_communication_service_domain.azure_managed
+}
+moved {
+  from = azurerm_key_vault_secret.acs_connection_string
+  to   = module.notifier.azurerm_key_vault_secret.acs_connection_string
+}
+moved {
+  from = azurerm_linux_function_app.notifier
+  to   = module.notifier.azurerm_linux_function_app.notifier
+}
+moved {
+  from = azurerm_role_assignment.notifier_to_sb_receiver
+  to   = module.notifier.azurerm_role_assignment.notifier_to_sb_receiver
+}
+moved {
+  from = random_uuid.cosmos_notifier_role_assignment
+  to   = module.notifier.random_uuid.cosmos_notifier_role_assignment
+}
+moved {
+  from = azurerm_cosmosdb_sql_role_assignment.notifier_to_cosmos_contributor
+  to   = module.notifier.azurerm_cosmosdb_sql_role_assignment.notifier_to_cosmos_contributor
+}
+moved {
+  from = azurerm_role_assignment.notifier_to_kv_secrets_user
+  to   = module.notifier.azurerm_role_assignment.notifier_to_kv_secrets_user
+}
+moved {
+  from = azurerm_monitor_diagnostic_setting.functions_notifier
+  to   = module.notifier.azurerm_monitor_diagnostic_setting.functions_notifier
+}
