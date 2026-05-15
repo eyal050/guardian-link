@@ -241,3 +241,16 @@ module "notifier" {
   postgres_notifier_password_secret_id  = module.postgres.notifier_password_secret_id
   tags                                  = local.tags
 }
+
+module "budget" {
+  source = "../../modules/budget"
+  providers = {
+    azurerm.workload = azurerm.workload
+  }
+
+  application_name         = var.application_name
+  environment_name         = var.environment_name
+  workload_subscription_id = var.workload_subscription_id
+  budget_amount            = var.budget_amount
+  budget_contact_email     = var.budget_contact_email
+}

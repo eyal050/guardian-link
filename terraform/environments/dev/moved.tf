@@ -317,3 +317,9 @@ moved {
   from = azurerm_monitor_diagnostic_setting.functions_notifier
   to   = module.notifier.azurerm_monitor_diagnostic_setting.functions_notifier
 }
+
+# budget
+moved {
+  from = azurerm_consumption_budget_subscription.main
+  to   = module.budget.azurerm_consumption_budget_subscription.main
+}
