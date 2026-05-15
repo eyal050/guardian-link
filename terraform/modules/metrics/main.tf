@@ -77,8 +77,7 @@ resource "azurerm_monitor_diagnostic_setting" "functions_metrics" {
     category = "FunctionAppLogs"
   }
 
-  metric {
+  enabled_metric {
     category = "AllMetrics"
-    enabled  = true
   }
 }

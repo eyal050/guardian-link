@@ -120,8 +120,7 @@ resource "azurerm_monitor_diagnostic_setting" "iothub" {
     category = "DeviceIdentityOperations"
   }
 
-  metric {
+  enabled_metric {
     category = "AllMetrics"
-    enabled  = true
   }
 }

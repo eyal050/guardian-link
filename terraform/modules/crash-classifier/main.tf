@@ -128,8 +128,7 @@ resource "azurerm_monitor_diagnostic_setting" "functions_classifier" {
     category = "FunctionAppLogs"
   }
 
-  metric {
+  enabled_metric {
     category = "AllMetrics"
-    enabled  = true
   }
 }

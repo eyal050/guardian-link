@@ -99,8 +99,7 @@ resource "azurerm_monitor_diagnostic_setting" "servicebus_namespace" {
     category = "RuntimeAuditLogs"
   }
 
-  metric {
+  enabled_metric {
     category = "AllMetrics"
-    enabled  = true
   }
 }

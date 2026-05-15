@@ -39,8 +39,7 @@ resource "azurerm_monitor_diagnostic_setting" "eventgrid_lifecycle" {
     category = "PublishFailures"
   }
 
-  metric {
+  enabled_metric {
     category = "AllMetrics"
-    enabled  = true
   }
 }

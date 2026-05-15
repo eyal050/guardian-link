@@ -69,9 +69,8 @@ resource "azurerm_monitor_diagnostic_setting" "storage_blob" {
     category = "StorageDelete"
   }
 
-  metric {
+  enabled_metric {
     category = "Transaction"
-    enabled  = true
   }
 }
 
@@ -149,8 +148,7 @@ resource "azurerm_monitor_diagnostic_setting" "raw_archive_blob" {
     category = "StorageDelete"
   }
 
-  metric {
+  enabled_metric {
     category = "Transaction"
-    enabled  = true
   }
 }

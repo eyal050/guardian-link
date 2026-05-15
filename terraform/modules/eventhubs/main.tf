@@ -72,9 +72,8 @@ resource "azurerm_monitor_diagnostic_setting" "eventhub_namespace" {
     category = "ArchiveLogs"
   }
 
-  metric {
+  enabled_metric {
     category = "AllMetrics"
-    enabled  = true
   }
 }
 
