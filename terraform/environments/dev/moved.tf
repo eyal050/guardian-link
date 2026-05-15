@@ -81,3 +81,21 @@ moved {
   from = azurerm_monitor_diagnostic_setting.cosmos
   to   = module.cosmos.azurerm_monitor_diagnostic_setting.cosmos
 }
+
+# eventhubs
+moved {
+  from = azurerm_eventhub_namespace.main
+  to   = module.eventhubs.azurerm_eventhub_namespace.main
+}
+moved {
+  from = azurerm_eventhub.telemetry
+  to   = module.eventhubs.azurerm_eventhub.telemetry
+}
+moved {
+  from = azurerm_monitor_diagnostic_setting.eventhub_namespace
+  to   = module.eventhubs.azurerm_monitor_diagnostic_setting.eventhub_namespace
+}
+moved {
+  from = azurerm_eventhub_consumer_group.inspector
+  to   = module.eventhubs.azurerm_eventhub_consumer_group.inspector
+}

@@ -5,8 +5,8 @@ resource "azurerm_eventhub_consumer_group" "metrics" {
   provider = azurerm.workload
 
   name                = "metrics"
-  namespace_name      = azurerm_eventhub_namespace.main.name
-  eventhub_name       = azurerm_eventhub.telemetry.name
+  namespace_name      = module.eventhubs.namespace_name
+  eventhub_name       = module.eventhubs.telemetry_hub_name
   resource_group_name = azurerm_resource_group.main.name
 }
 
@@ -36,7 +36,7 @@ resource "azurerm_linux_function_app" "metrics" {
   }
 
   app_settings = {
-    "EH_TELEMETRY__fullyQualifiedNamespace" = "${azurerm_eventhub_namespace.main.name}.servicebus.windows.net"
+    "EH_TELEMETRY__fullyQualifiedNamespace" = "${module.eventhubs.namespace_name}.servicebus.windows.net"
     "EH_TELEMETRY__credential"              = "managedidentity"
 
     "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
@@ -56,7 +56,7 @@ resource "azurerm_linux_function_app" "metrics" {
 resource "azurerm_role_assignment" "metrics_to_eh_receiver" {
   provider = azurerm.workload
 
-  scope                = azurerm_eventhub.telemetry.id
+  scope                = module.eventhubs.telemetry_hub_id
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = azurerm_linux_function_app.metrics.identity[0].principal_id
 }

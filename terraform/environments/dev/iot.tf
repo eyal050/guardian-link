@@ -44,7 +44,7 @@ resource "azurerm_iothub" "main" {
 resource "azurerm_role_assignment" "iot_to_eh_sender" {
   provider = azurerm.workload
 
-  scope                = azurerm_eventhub.telemetry.id
+  scope                = module.eventhubs.telemetry_hub_id
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = azurerm_iothub.main.identity[0].principal_id
 }
@@ -61,8 +61,8 @@ resource "azurerm_iothub_endpoint_eventhub" "telemetry" {
   iothub_id           = azurerm_iothub.main.id
 
   authentication_type = "identityBased"
-  endpoint_uri        = "sb://${azurerm_eventhub_namespace.main.name}.servicebus.windows.net"
-  entity_path         = azurerm_eventhub.telemetry.name
+  endpoint_uri        = "sb://${module.eventhubs.namespace_name}.servicebus.windows.net"
+  entity_path         = module.eventhubs.telemetry_hub_name
 
   depends_on = [azurerm_role_assignment.iot_to_eh_sender]
 }

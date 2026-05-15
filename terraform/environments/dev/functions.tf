@@ -14,8 +14,8 @@ resource "azurerm_eventhub_consumer_group" "telemetry_writer" {
   provider = azurerm.workload
 
   name                = "telemetry-writer"
-  namespace_name      = azurerm_eventhub_namespace.main.name
-  eventhub_name       = azurerm_eventhub.telemetry.name
+  namespace_name      = module.eventhubs.namespace_name
+  eventhub_name       = module.eventhubs.telemetry_hub_name
   resource_group_name = azurerm_resource_group.main.name
 }
 
@@ -83,7 +83,7 @@ resource "azurerm_linux_function_app" "telemetry_writer" {
   app_settings = {
     # Identity-based connection for the EH trigger. The runtime reads
     # both __fullyQualifiedNamespace (where) and __credential (how).
-    "EH_TELEMETRY__fullyQualifiedNamespace" = "${azurerm_eventhub_namespace.main.name}.servicebus.windows.net"
+    "EH_TELEMETRY__fullyQualifiedNamespace" = "${module.eventhubs.namespace_name}.servicebus.windows.net"
     "EH_TELEMETRY__credential"              = "managedidentity"
 
     # Run the Oryx build on deploy so pip installs requirements.txt
@@ -138,7 +138,7 @@ resource "azurerm_linux_function_app" "telemetry_writer" {
 resource "azurerm_role_assignment" "func_to_eh_receiver" {
   provider = azurerm.workload
 
-  scope                = azurerm_eventhub.telemetry.id
+  scope                = module.eventhubs.telemetry_hub_id
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = azurerm_linux_function_app.telemetry_writer.identity[0].principal_id
 }

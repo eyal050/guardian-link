@@ -20,7 +20,7 @@ module "aks" {
 resource "azurerm_role_assignment" "consumer_eh_receiver" {
   provider = azurerm.workload
 
-  scope                = azurerm_eventhub_namespace.main.id
+  scope                = module.eventhubs.namespace_id
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.aks.consumer_identity_principal_id
 }

@@ -35,7 +35,7 @@ resource "azurerm_linux_function_app" "crash_classifier" {
     # EH identity-based trigger connection — same namespace as the writer
     # but the function body reads the 'crash-classifier' consumer group
     # (declared in function_app.py, must match the TF consumer group resource).
-    "EH_TELEMETRY__fullyQualifiedNamespace" = "${azurerm_eventhub_namespace.main.name}.servicebus.windows.net"
+    "EH_TELEMETRY__fullyQualifiedNamespace" = "${module.eventhubs.namespace_name}.servicebus.windows.net"
     "EH_TELEMETRY__credential"              = "managedidentity"
 
     "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
@@ -80,7 +80,7 @@ resource "azurerm_linux_function_app" "crash_classifier" {
 resource "azurerm_role_assignment" "classifier_to_eh_receiver" {
   provider = azurerm.workload
 
-  scope                = azurerm_eventhub.telemetry.id
+  scope                = module.eventhubs.telemetry_hub_id
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = azurerm_linux_function_app.crash_classifier.identity[0].principal_id
 }

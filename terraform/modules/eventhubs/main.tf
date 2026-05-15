@@ -9,9 +9,9 @@
 resource "azurerm_eventhub_namespace" "main" {
   provider = azurerm.workload
 
-  name                = "evhns-${local.name_prefix}"
-  location            = var.primary_location
-  resource_group_name = azurerm_resource_group.main.name
+  name                = "evhns-${var.name_prefix}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
 
   sku                      = "Standard"
   capacity                 = 1
@@ -22,7 +22,7 @@ resource "azurerm_eventhub_namespace" "main" {
   local_authentication_enabled  = false
   minimum_tls_version           = "1.2"
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # Single hub for device telemetry. Partitioned by deviceId at the producer
@@ -36,7 +36,7 @@ resource "azurerm_eventhub" "telemetry" {
 
   name                = "telemetry"
   namespace_name      = azurerm_eventhub_namespace.main.name
-  resource_group_name = azurerm_resource_group.main.name
+  resource_group_name = var.resource_group_name
 
   partition_count   = 4
   message_retention = 7
@@ -52,9 +52,9 @@ resource "azurerm_eventhub" "telemetry" {
 resource "azurerm_monitor_diagnostic_setting" "eventhub_namespace" {
   provider = azurerm.workload
 
-  name                       = "diag-evhns-${local.name_prefix}"
+  name                       = "diag-evhns-${var.name_prefix}"
   target_resource_id         = azurerm_eventhub_namespace.main.id
-  log_analytics_workspace_id = module.observability.workspace_id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
 
   enabled_log {
     category = "OperationalLogs"
@@ -87,5 +87,5 @@ resource "azurerm_eventhub_consumer_group" "inspector" {
   name                = "inspector"
   namespace_name      = azurerm_eventhub_namespace.main.name
   eventhub_name       = azurerm_eventhub.telemetry.name
-  resource_group_name = azurerm_resource_group.main.name
+  resource_group_name = var.resource_group_name
 }

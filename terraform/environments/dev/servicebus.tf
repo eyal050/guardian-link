@@ -73,8 +73,8 @@ resource "azurerm_eventhub_consumer_group" "crash_classifier" {
   provider = azurerm.workload
 
   name                = "crash-classifier"
-  namespace_name      = azurerm_eventhub_namespace.main.name
-  eventhub_name       = azurerm_eventhub.telemetry.name
+  namespace_name      = module.eventhubs.namespace_name
+  eventhub_name       = module.eventhubs.telemetry_hub_name
   resource_group_name = azurerm_resource_group.main.name
 }
 

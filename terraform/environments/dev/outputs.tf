@@ -66,12 +66,12 @@ output "storage_blob_url" {
 }
 
 output "eventhub_fqdn" {
-  value       = "${azurerm_eventhub_namespace.main.name}.servicebus.windows.net"
+  value       = "${module.eventhubs.namespace_name}.servicebus.windows.net"
   description = "Event Hub namespace FQDN for the consumer."
 }
 
 output "eventhub_name" {
-  value       = azurerm_eventhub.telemetry.name
+  value       = module.eventhubs.telemetry_hub_name
   description = "Event Hub name (telemetry)."
 }
 
