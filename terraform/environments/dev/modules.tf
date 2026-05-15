@@ -191,3 +191,23 @@ module "crash_classifier" {
   ml_stub_fqdn                       = module.ml_stub.ml_stub_fqdn
   tags                               = local.tags
 }
+
+module "metrics" {
+  source = "../../modules/metrics"
+  providers = {
+    azurerm.workload = azurerm.workload
+  }
+
+  name_prefix                        = local.name_prefix
+  location                           = var.primary_location
+  resource_group_name                = azurerm_resource_group.main.name
+  log_analytics_workspace_id         = module.observability.workspace_id
+  app_insights_connection_string     = module.observability.app_insights_connection_string
+  service_plan_id                    = module.functions.service_plan_id
+  storage_account_name               = module.storage.main_name
+  storage_account_primary_access_key = module.storage.main_primary_access_key
+  eventhub_namespace_name            = module.eventhubs.namespace_name
+  eventhub_name                      = module.eventhubs.telemetry_hub_name
+  telemetry_hub_id                   = module.eventhubs.telemetry_hub_id
+  tags                               = local.tags
+}

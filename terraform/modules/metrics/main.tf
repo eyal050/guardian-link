@@ -5,9 +5,9 @@ resource "azurerm_eventhub_consumer_group" "metrics" {
   provider = azurerm.workload
 
   name                = "metrics"
-  namespace_name      = module.eventhubs.namespace_name
-  eventhub_name       = module.eventhubs.telemetry_hub_name
-  resource_group_name = azurerm_resource_group.main.name
+  namespace_name      = var.eventhub_namespace_name
+  eventhub_name       = var.eventhub_name
+  resource_group_name = var.resource_group_name
 }
 
 # Metrics Function App. No Cosmos, no Service Bus — reads EH only.
@@ -15,13 +15,13 @@ resource "azurerm_eventhub_consumer_group" "metrics" {
 resource "azurerm_linux_function_app" "metrics" {
   provider = azurerm.workload
 
-  name                = "func-${local.name_prefix}-metrics"
-  location            = var.primary_location
-  resource_group_name = azurerm_resource_group.main.name
-  service_plan_id     = module.functions.service_plan_id
+  name                = "func-${var.name_prefix}-metrics"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  service_plan_id     = var.service_plan_id
 
-  storage_account_name       = module.storage.main_name
-  storage_account_access_key = module.storage.main_primary_access_key
+  storage_account_name       = var.storage_account_name
+  storage_account_access_key = var.storage_account_primary_access_key
 
   identity {
     type = "SystemAssigned"
@@ -32,11 +32,11 @@ resource "azurerm_linux_function_app" "metrics" {
       python_version = "3.10"
     }
 
-    application_insights_connection_string = module.observability.app_insights_connection_string
+    application_insights_connection_string = var.app_insights_connection_string
   }
 
   app_settings = {
-    "EH_TELEMETRY__fullyQualifiedNamespace" = "${module.eventhubs.namespace_name}.servicebus.windows.net"
+    "EH_TELEMETRY__fullyQualifiedNamespace" = "${var.eventhub_namespace_name}.servicebus.windows.net"
     "EH_TELEMETRY__credential"              = "managedidentity"
 
     "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
@@ -49,14 +49,14 @@ resource "azurerm_linux_function_app" "metrics" {
     ]
   }
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # EH Data Receiver scoped to the telemetry hub — same scope as classifier.
 resource "azurerm_role_assignment" "metrics_to_eh_receiver" {
   provider = azurerm.workload
 
-  scope                = module.eventhubs.telemetry_hub_id
+  scope                = var.telemetry_hub_id
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = azurerm_linux_function_app.metrics.identity[0].principal_id
 }
@@ -64,9 +64,9 @@ resource "azurerm_role_assignment" "metrics_to_eh_receiver" {
 resource "azurerm_monitor_diagnostic_setting" "functions_metrics" {
   provider = azurerm.workload
 
-  name                       = "diag-func-${local.name_prefix}-metrics"
+  name                       = "diag-func-${var.name_prefix}-metrics"
   target_resource_id         = azurerm_linux_function_app.metrics.id
-  log_analytics_workspace_id = module.observability.workspace_id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
 
   enabled_log {
     category = "FunctionAppLogs"

@@ -257,3 +257,21 @@ moved {
   from = azurerm_monitor_diagnostic_setting.functions_classifier
   to   = module.crash_classifier.azurerm_monitor_diagnostic_setting.functions_classifier
 }
+
+# metrics
+moved {
+  from = azurerm_eventhub_consumer_group.metrics
+  to   = module.metrics.azurerm_eventhub_consumer_group.metrics
+}
+moved {
+  from = azurerm_linux_function_app.metrics
+  to   = module.metrics.azurerm_linux_function_app.metrics
+}
+moved {
+  from = azurerm_role_assignment.metrics_to_eh_receiver
+  to   = module.metrics.azurerm_role_assignment.metrics_to_eh_receiver
+}
+moved {
+  from = azurerm_monitor_diagnostic_setting.functions_metrics
+  to   = module.metrics.azurerm_monitor_diagnostic_setting.functions_metrics
+}

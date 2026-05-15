@@ -41,7 +41,7 @@ output "func_notifier_name" {
 }
 
 output "func_metrics_name" {
-  value       = azurerm_linux_function_app.metrics.name
+  value       = module.metrics.name
   description = "Metrics Function App name."
 }
 
