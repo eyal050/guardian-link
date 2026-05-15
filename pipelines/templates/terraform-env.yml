@@ -145,7 +145,7 @@ stages:
                         -backend-config="key=${{ parameters.stateKey }}" \
                         -input=false
                       terraform apply -auto-approve -input=false \
-                        -target=azurerm_container_registry.main
+                        -target=module.ml_stub.azurerm_container_registry.main
                   env:
                     TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
                     TF_VAR_alert_email: $(TF_VAR_alert_email)
@@ -190,23 +190,23 @@ stages:
                       # Container App Environment may exist in Azure but not in state
                       # if a previous apply errored during the slow CAE polling phase.
                       CAE_ID="/subscriptions/$(TF_VAR_workload_subscription_id)/resourceGroups/rg-guardianlink-${{ parameters.environment }}/providers/Microsoft.App/managedEnvironments/cae-guardianlink-${{ parameters.environment }}-weu"
-                      if ! terraform state show azurerm_container_app_environment.main > /dev/null 2>&1; then
+                      if ! terraform state show module.ml_stub.azurerm_container_app_environment.main > /dev/null 2>&1; then
                         if az containerapp env show --ids "$CAE_ID" &>/dev/null; then
-                          echo "Importing azurerm_container_app_environment.main..."
-                          terraform import azurerm_container_app_environment.main "$CAE_ID"
+                          echo "Importing module.ml_stub.azurerm_container_app_environment.main..."
+                          terraform import module.ml_stub.azurerm_container_app_environment.main "$CAE_ID"
                         fi
                       else
-                        echo "azurerm_container_app_environment.main already in state."
+                        echo "module.ml_stub.azurerm_container_app_environment.main already in state."
                       fi
 
                       CA_ID="/subscriptions/$(TF_VAR_workload_subscription_id)/resourceGroups/rg-guardianlink-${{ parameters.environment }}/providers/Microsoft.App/containerApps/ca-guardianlink-${{ parameters.environment }}-weu-ml-stub"
-                      if ! terraform state show azurerm_container_app.ml_stub > /dev/null 2>&1; then
+                      if ! terraform state show module.ml_stub.azurerm_container_app.ml_stub > /dev/null 2>&1; then
                         if az containerapp show --ids "$CA_ID" &>/dev/null; then
-                          echo "Importing azurerm_container_app.ml_stub..."
-                          terraform import azurerm_container_app.ml_stub "$CA_ID"
+                          echo "Importing module.ml_stub.azurerm_container_app.ml_stub..."
+                          terraform import module.ml_stub.azurerm_container_app.ml_stub "$CA_ID"
                         fi
                       else
-                        echo "azurerm_container_app.ml_stub already in state."
+                        echo "module.ml_stub.azurerm_container_app.ml_stub already in state."
                       fi
                   env:
                     TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
