@@ -341,3 +341,9 @@ moved {
   from = azurerm_monitor_scheduled_query_rules_alert_v2.no_iot_connections
   to   = module.alerts.azurerm_monitor_scheduled_query_rules_alert_v2.no_iot_connections
 }
+
+# dashboards
+moved {
+  from = azurerm_application_insights_workbook.telemetry
+  to   = module.dashboards.azurerm_application_insights_workbook.telemetry
+}

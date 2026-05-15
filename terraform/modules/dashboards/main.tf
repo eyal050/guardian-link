@@ -131,15 +131,15 @@ resource "azurerm_application_insights_workbook" "telemetry" {
   # keep state stable; random_uuid() would track in state and a
   # destroy-recreate cycle would surface as scary diff churn.
   name                = "5b2d4f70-1a2c-4e8f-9c1b-7e3a8d6f9a01"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = var.primary_location
+  resource_group_name = var.resource_group_name
+  location            = var.location
 
   display_name = "GuardianLink — telemetry pipeline"
   category     = "workbook"
   # Provider validation requires source_id to be all lowercase, but
   # Azure returns the ID with mixed case (Microsoft.Insights/...).
-  source_id = lower(module.observability.app_insights_id)
+  source_id = lower(var.app_insights_id)
   data_json = local.workbook_data
 
-  tags = local.tags
+  tags = var.tags
 }

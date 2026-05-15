@@ -269,3 +269,16 @@ module "alerts" {
   alert_email                = var.alert_email
   tags                       = local.tags
 }
+
+module "dashboards" {
+  source = "../../modules/dashboards"
+  providers = {
+    azurerm.workload = azurerm.workload
+  }
+
+  name_prefix         = local.name_prefix
+  location            = var.primary_location
+  resource_group_name = azurerm_resource_group.main.name
+  app_insights_id     = module.observability.app_insights_id
+  tags                = local.tags
+}
