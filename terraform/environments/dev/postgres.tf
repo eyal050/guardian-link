@@ -18,18 +18,18 @@ resource "azurerm_key_vault_secret" "postgres_admin_password" {
   provider     = azurerm.workload
   name         = "postgres-admin-password"
   value        = random_password.postgres_admin.result
-  key_vault_id = azurerm_key_vault.main.id
+  key_vault_id = module.keyvault.id
 
-  depends_on = [azurerm_role_assignment.kv_operator_secrets_officer]
+  # depends_on removed during keyvault extraction; restored when postgres is modulized in Task 9 via terraform_data shim
 }
 
 resource "azurerm_key_vault_secret" "postgres_notifier_password" {
   provider     = azurerm.workload
   name         = "postgres-notifier-password"
   value        = random_password.postgres_notifier.result
-  key_vault_id = azurerm_key_vault.main.id
+  key_vault_id = module.keyvault.id
 
-  depends_on = [azurerm_role_assignment.kv_operator_secrets_officer]
+  # depends_on removed during keyvault extraction; restored when postgres is modulized in Task 9 via terraform_data shim
 }
 
 resource "azurerm_postgresql_flexible_server" "main" {

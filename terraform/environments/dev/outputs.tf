@@ -76,6 +76,6 @@ output "eventhub_name" {
 }
 
 output "key_vault_name" {
-  value       = azurerm_key_vault.main.name
+  value       = module.keyvault.name
   description = "Key Vault name for the CSI driver SecretProviderClass."
 }

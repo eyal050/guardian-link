@@ -26,3 +26,16 @@ module "storage" {
   log_analytics_workspace_id = module.observability.workspace_id
   tags                       = local.tags
 }
+
+module "keyvault" {
+  source = "../../modules/keyvault"
+  providers = {
+    azurerm.workload = azurerm.workload
+  }
+
+  name_prefix                    = local.name_prefix
+  location                       = var.primary_location
+  resource_group_name            = azurerm_resource_group.main.name
+  app_insights_connection_string = module.observability.app_insights_connection_string
+  tags                           = local.tags
+}

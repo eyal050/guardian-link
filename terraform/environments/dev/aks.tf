@@ -9,7 +9,7 @@ module "aks" {
   resource_group_name        = azurerm_resource_group.main.name
   location                   = var.primary_location
   dns_prefix                 = "${var.application_name}-${var.environment_name}"
-  key_vault_id               = azurerm_key_vault.main.id
+  key_vault_id               = module.keyvault.id
   acr_id                     = azurerm_container_registry.main.id
   log_analytics_workspace_id = module.observability.workspace_id
   tags                       = local.tags

@@ -45,3 +45,17 @@ moved {
   from = azurerm_monitor_diagnostic_setting.raw_archive_blob
   to   = module.storage.azurerm_monitor_diagnostic_setting.raw_archive_blob
 }
+
+# keyvault
+moved {
+  from = azurerm_key_vault.main
+  to   = module.keyvault.azurerm_key_vault.main
+}
+moved {
+  from = azurerm_role_assignment.kv_operator_secrets_officer
+  to   = module.keyvault.azurerm_role_assignment.kv_operator_secrets_officer
+}
+moved {
+  from = azurerm_key_vault_secret.appi_connection_string
+  to   = module.keyvault.azurerm_key_vault_secret.appi_connection_string
+}

@@ -36,9 +36,9 @@ resource "azurerm_key_vault_secret" "acs_connection_string" {
   provider     = azurerm.workload
   name         = "acs-connection-string"
   value        = azurerm_communication_service.main.primary_connection_string
-  key_vault_id = azurerm_key_vault.main.id
+  key_vault_id = module.keyvault.id
 
-  depends_on = [azurerm_role_assignment.kv_operator_secrets_officer]
+  # depends_on removed during keyvault extraction; restored when notifier is modulized in Task 14 via terraform_data shim
 }
 
 # Notifier Function App. Shares the existing Consumption Y1 plan —
@@ -136,7 +136,7 @@ resource "azurerm_cosmosdb_sql_role_assignment" "notifier_to_cosmos_contributor"
 resource "azurerm_role_assignment" "notifier_to_kv_secrets_user" {
   provider = azurerm.workload
 
-  scope                = azurerm_key_vault.main.id
+  scope                = module.keyvault.id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_linux_function_app.notifier.identity[0].principal_id
 }

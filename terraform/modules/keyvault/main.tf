@@ -12,15 +12,15 @@ data "azurerm_client_config" "current" {}
 resource "azurerm_key_vault" "main" {
   provider = azurerm.workload
 
-  name                = "kv-${local.name_prefix}"
-  location            = var.primary_location
-  resource_group_name = azurerm_resource_group.main.name
+  name                = "kv-${var.name_prefix}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
   tenant_id           = data.azurerm_client_config.current.tenant_id
   sku_name            = "standard"
 
   enable_rbac_authorization = true
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # Operator needs Secrets Officer to write the secrets below during apply.
@@ -36,7 +36,7 @@ resource "azurerm_key_vault_secret" "appi_connection_string" {
   provider = azurerm.workload
 
   name         = "appi-connection-string"
-  value        = module.observability.app_insights_connection_string
+  value        = var.app_insights_connection_string
   key_vault_id = azurerm_key_vault.main.id
 
   depends_on = [azurerm_role_assignment.kv_operator_secrets_officer]
