@@ -61,7 +61,7 @@ output "consumer_identity_client_id" {
 }
 
 output "storage_blob_url" {
-  value       = azurerm_storage_account.main.primary_blob_endpoint
+  value       = module.storage.main_primary_blob_endpoint
   description = "Primary blob endpoint for the consumer checkpoint store."
 }
 

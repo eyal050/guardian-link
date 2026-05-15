@@ -62,8 +62,8 @@ resource "azurerm_linux_function_app" "telemetry_writer" {
   resource_group_name = azurerm_resource_group.main.name
   service_plan_id     = azurerm_service_plan.functions.id
 
-  storage_account_name       = azurerm_storage_account.main.name
-  storage_account_access_key = azurerm_storage_account.main.primary_access_key
+  storage_account_name       = module.storage.main_name
+  storage_account_access_key = module.storage.main_primary_access_key
 
   identity {
     type = "SystemAssigned"
@@ -113,8 +113,8 @@ resource "azurerm_linux_function_app" "telemetry_writer" {
     # account (`func_to_blob_archive` below) authorizes the writes.
     # ACCOUNT is the full primary_blob_endpoint URL (the SDK's
     # BlobServiceClient takes account_url, not just the FQDN).
-    "BLOB_ARCHIVE_ACCOUNT"   = azurerm_storage_account.raw_archive.primary_blob_endpoint
-    "BLOB_ARCHIVE_CONTAINER" = azurerm_storage_container.telemetry_raw.name
+    "BLOB_ARCHIVE_ACCOUNT"   = module.storage.raw_archive_primary_blob_endpoint
+    "BLOB_ARCHIVE_CONTAINER" = module.storage.telemetry_raw_container_name
   }
 
   # WEBSITE_RUN_FROM_PACKAGE is set by `az functionapp deployment source
@@ -177,7 +177,7 @@ resource "azurerm_cosmosdb_sql_role_assignment" "func_to_cosmos_writer" {
 resource "azurerm_role_assignment" "func_to_blob_archive" {
   provider = azurerm.workload
 
-  scope                = azurerm_storage_account.raw_archive.id
+  scope                = module.storage.raw_archive_id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_linux_function_app.telemetry_writer.identity[0].principal_id
 }

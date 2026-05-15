@@ -22,8 +22,8 @@ resource "azurerm_storage_account" "main" {
   provider = azurerm.workload
 
   name                = "stgl${var.environment_name}${random_string.storage_suffix.result}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = var.primary_location
+  resource_group_name = var.resource_group_name
+  location            = var.location
 
   account_tier             = "Standard"
   account_replication_type = "LRS"
@@ -31,7 +31,7 @@ resource "azurerm_storage_account" "main" {
   public_network_access_enabled = true
   min_tls_version               = "TLS1_2"
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # Checkpoint store for the Event Hub consumer's BlobCheckpointStore.
@@ -53,9 +53,9 @@ resource "azurerm_storage_container" "eh_checkpoints" {
 resource "azurerm_monitor_diagnostic_setting" "storage_blob" {
   provider = azurerm.workload
 
-  name                       = "diag-st-blob-${local.name_prefix}"
+  name                       = "diag-st-blob-${var.name_prefix}"
   target_resource_id         = "${azurerm_storage_account.main.id}/blobServices/default"
-  log_analytics_workspace_id = module.observability.workspace_id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
 
   enabled_log {
     category = "StorageRead"
@@ -103,8 +103,8 @@ resource "azurerm_storage_account" "raw_archive" {
   provider = azurerm.workload
 
   name                = "stglraw${var.environment_name}${random_string.raw_archive_suffix.result}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = var.primary_location
+  resource_group_name = var.resource_group_name
+  location            = var.location
 
   account_tier             = "Standard"
   account_replication_type = "LRS"
@@ -112,7 +112,7 @@ resource "azurerm_storage_account" "raw_archive" {
   public_network_access_enabled = true
   min_tls_version               = "TLS1_2"
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # `telemetry-raw` holds NDJSON-per-batch from the writer. Hive-style
@@ -133,9 +133,9 @@ resource "azurerm_storage_container" "telemetry_raw" {
 resource "azurerm_monitor_diagnostic_setting" "raw_archive_blob" {
   provider = azurerm.workload
 
-  name                       = "diag-st-blob-${local.name_prefix}-raw"
+  name                       = "diag-st-blob-${var.name_prefix}-raw"
   target_resource_id         = "${azurerm_storage_account.raw_archive.id}/blobServices/default"
-  log_analytics_workspace_id = module.observability.workspace_id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
 
   enabled_log {
     category = "StorageRead"

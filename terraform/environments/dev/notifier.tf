@@ -52,8 +52,8 @@ resource "azurerm_linux_function_app" "notifier" {
   resource_group_name = azurerm_resource_group.main.name
   service_plan_id     = azurerm_service_plan.functions.id
 
-  storage_account_name       = azurerm_storage_account.main.name
-  storage_account_access_key = azurerm_storage_account.main.primary_access_key
+  storage_account_name       = module.storage.main_name
+  storage_account_access_key = module.storage.main_primary_access_key
 
   identity {
     type = "SystemAssigned"

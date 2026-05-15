@@ -30,7 +30,7 @@ resource "azurerm_role_assignment" "consumer_eh_receiver" {
 resource "azurerm_role_assignment" "consumer_storage_contributor" {
   provider = azurerm.workload
 
-  scope                = azurerm_storage_account.main.id
+  scope                = module.storage.main_id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = module.aks.consumer_identity_principal_id
 }
