@@ -124,7 +124,7 @@ resource "azurerm_monitor_diagnostic_setting" "cosmos" {
 
   name                       = "diag-cosmos-${local.name_prefix}"
   target_resource_id         = azurerm_cosmosdb_account.main.id
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  log_analytics_workspace_id = module.observability.workspace_id
 
   enabled_log {
     category = "DataPlaneRequests"

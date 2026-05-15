@@ -32,7 +32,7 @@ resource "azurerm_linux_function_app" "metrics" {
       python_version = "3.10"
     }
 
-    application_insights_connection_string = azurerm_application_insights.main.connection_string
+    application_insights_connection_string = module.observability.app_insights_connection_string
   }
 
   app_settings = {
@@ -66,7 +66,7 @@ resource "azurerm_monitor_diagnostic_setting" "functions_metrics" {
 
   name                       = "diag-func-${local.name_prefix}-metrics"
   target_resource_id         = azurerm_linux_function_app.metrics.id
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  log_analytics_workspace_id = module.observability.workspace_id
 
   enabled_log {
     category = "FunctionAppLogs"

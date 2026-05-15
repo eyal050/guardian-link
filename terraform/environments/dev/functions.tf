@@ -77,7 +77,7 @@ resource "azurerm_linux_function_app" "telemetry_writer" {
     # AI conn string set via site_config (not app_settings) — the
     # provider normalizes here on read, so anchoring TF to the same
     # location avoids a perpetual diff.
-    application_insights_connection_string = azurerm_application_insights.main.connection_string
+    application_insights_connection_string = module.observability.app_insights_connection_string
   }
 
   app_settings = {
@@ -192,7 +192,7 @@ resource "azurerm_monitor_diagnostic_setting" "functions_writer" {
 
   name                       = "diag-func-${local.name_prefix}-writer"
   target_resource_id         = azurerm_linux_function_app.telemetry_writer.id
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  log_analytics_workspace_id = module.observability.workspace_id
 
   enabled_log {
     category = "FunctionAppLogs"

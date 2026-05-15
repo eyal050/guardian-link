@@ -138,7 +138,7 @@ resource "azurerm_application_insights_workbook" "telemetry" {
   category     = "workbook"
   # Provider validation requires source_id to be all lowercase, but
   # Azure returns the ID with mixed case (Microsoft.Insights/...).
-  source_id = lower(azurerm_application_insights.main.id)
+  source_id = lower(module.observability.app_insights_id)
   data_json = local.workbook_data
 
   tags = local.tags

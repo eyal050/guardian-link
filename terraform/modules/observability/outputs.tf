@@ -1,6 +1,6 @@
 output "workspace_id" {
   value       = azurerm_log_analytics_workspace.main.id
-  description = "Log Analytics workspace resource ID — passed to diagnostic settings in other modules."
+  description = "Log Analytics workspace ID; passed to every diag setting in other modules."
 }
 
 output "workspace_name" {
@@ -10,22 +10,16 @@ output "workspace_name" {
 
 output "app_insights_id" {
   value       = azurerm_application_insights.main.id
-  description = "Application Insights resource ID."
+  description = "App Insights resource ID."
 }
 
 output "app_insights_name" {
   value       = azurerm_application_insights.main.name
-  description = "Application Insights component name, used for release annotations."
+  description = "App Insights component name (used for release annotations + alerts scoping)."
 }
 
 output "app_insights_connection_string" {
   value       = azurerm_application_insights.main.connection_string
   sensitive   = true
-  description = "Connection string injected into Function App settings."
-}
-
-output "app_insights_instrumentation_key" {
-  value       = azurerm_application_insights.main.instrumentation_key
-  sensitive   = true
-  description = "Instrumentation key for SDKs that don't support connection strings."
+  description = "Connection string for Function Apps and the KV-stored secret."
 }

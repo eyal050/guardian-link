@@ -55,7 +55,7 @@ resource "azurerm_monitor_diagnostic_setting" "storage_blob" {
 
   name                       = "diag-st-blob-${local.name_prefix}"
   target_resource_id         = "${azurerm_storage_account.main.id}/blobServices/default"
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  log_analytics_workspace_id = module.observability.workspace_id
 
   enabled_log {
     category = "StorageRead"
@@ -135,7 +135,7 @@ resource "azurerm_monitor_diagnostic_setting" "raw_archive_blob" {
 
   name                       = "diag-st-blob-${local.name_prefix}-raw"
   target_resource_id         = "${azurerm_storage_account.raw_archive.id}/blobServices/default"
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  log_analytics_workspace_id = module.observability.workspace_id
 
   enabled_log {
     category = "StorageRead"

@@ -29,7 +29,7 @@ resource "azurerm_monitor_diagnostic_setting" "eventgrid_lifecycle" {
 
   name                       = "diag-evgt-${local.name_prefix}-lifecycle"
   target_resource_id         = azurerm_eventgrid_topic.lifecycle.id
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  log_analytics_workspace_id = module.observability.workspace_id
 
   enabled_log {
     category = "DeliveryFailures"

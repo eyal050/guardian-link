@@ -54,7 +54,7 @@ resource "azurerm_monitor_diagnostic_setting" "eventhub_namespace" {
 
   name                       = "diag-evhns-${local.name_prefix}"
   target_resource_id         = azurerm_eventhub_namespace.main.id
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  log_analytics_workspace_id = module.observability.workspace_id
 
   enabled_log {
     category = "OperationalLogs"

@@ -16,7 +16,7 @@ output "postgres_notifier_password" {
 }
 
 output "app_insights_name" {
-  value       = azurerm_application_insights.main.name
+  value       = module.observability.app_insights_name
   description = "App Insights component name for release annotations."
 }
 

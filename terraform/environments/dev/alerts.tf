@@ -50,7 +50,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "no_telemetry" {
   resource_group_name = azurerm_resource_group.main.name
   location            = var.primary_location
 
-  scopes                  = [azurerm_application_insights.main.id]
+  scopes                  = [module.observability.app_insights_id]
   severity                = 3
   evaluation_frequency    = "PT5M"
   window_duration         = "PT10M"
@@ -88,7 +88,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "crash_spike" {
   resource_group_name = azurerm_resource_group.main.name
   location            = var.primary_location
 
-  scopes                  = [azurerm_application_insights.main.id]
+  scopes                  = [module.observability.app_insights_id]
   severity                = 2
   evaluation_frequency    = "PT5M"
   window_duration         = "PT10M"
@@ -126,7 +126,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "no_iot_connections" {
   resource_group_name = azurerm_resource_group.main.name
   location            = var.primary_location
 
-  scopes                  = [azurerm_log_analytics_workspace.main.id]
+  scopes                  = [module.observability.workspace_id]
   severity                = 2
   evaluation_frequency    = "PT15M"
   window_duration         = "PT30M"
