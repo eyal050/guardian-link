@@ -323,3 +323,21 @@ moved {
   from = azurerm_consumption_budget_subscription.main
   to   = module.budget.azurerm_consumption_budget_subscription.main
 }
+
+# alerts
+moved {
+  from = azurerm_monitor_action_group.email
+  to   = module.alerts.azurerm_monitor_action_group.email
+}
+moved {
+  from = azurerm_monitor_scheduled_query_rules_alert_v2.no_telemetry
+  to   = module.alerts.azurerm_monitor_scheduled_query_rules_alert_v2.no_telemetry
+}
+moved {
+  from = azurerm_monitor_scheduled_query_rules_alert_v2.crash_spike
+  to   = module.alerts.azurerm_monitor_scheduled_query_rules_alert_v2.crash_spike
+}
+moved {
+  from = azurerm_monitor_scheduled_query_rules_alert_v2.no_iot_connections
+  to   = module.alerts.azurerm_monitor_scheduled_query_rules_alert_v2.no_iot_connections
+}

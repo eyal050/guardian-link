@@ -254,3 +254,18 @@ module "budget" {
   budget_amount            = var.budget_amount
   budget_contact_email     = var.budget_contact_email
 }
+
+module "alerts" {
+  source = "../../modules/alerts"
+  providers = {
+    azurerm.workload = azurerm.workload
+  }
+
+  name_prefix                = local.name_prefix
+  location                   = var.primary_location
+  resource_group_name        = azurerm_resource_group.main.name
+  app_insights_id            = module.observability.app_insights_id
+  log_analytics_workspace_id = module.observability.workspace_id
+  alert_email                = var.alert_email
+  tags                       = local.tags
+}

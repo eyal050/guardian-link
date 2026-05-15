@@ -30,8 +30,8 @@ locals {
 resource "azurerm_monitor_action_group" "email" {
   provider = azurerm.workload
 
-  name                = "ag-${local.name_prefix}"
-  resource_group_name = azurerm_resource_group.main.name
+  name                = "ag-${var.name_prefix}"
+  resource_group_name = var.resource_group_name
   short_name          = "glink-dev" # 12-char max, shows in email subject
 
   email_receiver {
@@ -39,18 +39,18 @@ resource "azurerm_monitor_action_group" "email" {
     email_address = var.alert_email
   }
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # ---------- Rule 1: no telemetry from the simulator ----------
 resource "azurerm_monitor_scheduled_query_rules_alert_v2" "no_telemetry" {
   provider = azurerm.workload
 
-  name                = "alert-no-telemetry-${local.name_prefix}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = var.primary_location
+  name                = "alert-no-telemetry-${var.name_prefix}"
+  resource_group_name = var.resource_group_name
+  location            = var.location
 
-  scopes                  = [module.observability.app_insights_id]
+  scopes                  = [var.app_insights_id]
   severity                = 3
   evaluation_frequency    = "PT5M"
   window_duration         = "PT10M"
@@ -77,18 +77,18 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "no_telemetry" {
     action_groups = [azurerm_monitor_action_group.email.id]
   }
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # ---------- Rule 2: crash_suspect rate spike ----------
 resource "azurerm_monitor_scheduled_query_rules_alert_v2" "crash_spike" {
   provider = azurerm.workload
 
-  name                = "alert-crash-spike-${local.name_prefix}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = var.primary_location
+  name                = "alert-crash-spike-${var.name_prefix}"
+  resource_group_name = var.resource_group_name
+  location            = var.location
 
-  scopes                  = [module.observability.app_insights_id]
+  scopes                  = [var.app_insights_id]
   severity                = 2
   evaluation_frequency    = "PT5M"
   window_duration         = "PT10M"
@@ -115,18 +115,18 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "crash_spike" {
     action_groups = [azurerm_monitor_action_group.email.id]
   }
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # ---------- Rule 3: no IoT Hub successful Connections ----------
 resource "azurerm_monitor_scheduled_query_rules_alert_v2" "no_iot_connections" {
   provider = azurerm.workload
 
-  name                = "alert-no-iot-connections-${local.name_prefix}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = var.primary_location
+  name                = "alert-no-iot-connections-${var.name_prefix}"
+  resource_group_name = var.resource_group_name
+  location            = var.location
 
-  scopes                  = [module.observability.workspace_id]
+  scopes                  = [var.log_analytics_workspace_id]
   severity                = 2
   evaluation_frequency    = "PT15M"
   window_duration         = "PT30M"
@@ -153,5 +153,5 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "no_iot_connections" {
     action_groups = [azurerm_monitor_action_group.email.id]
   }
 
-  tags = local.tags
+  tags = var.tags
 }
