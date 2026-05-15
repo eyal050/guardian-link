@@ -96,3 +96,16 @@ module "iot" {
   eventhub_id                = module.eventhubs.telemetry_hub_id
   tags                       = local.tags
 }
+
+module "eventgrid" {
+  source = "../../modules/eventgrid"
+  providers = {
+    azurerm.workload = azurerm.workload
+  }
+
+  name_prefix                = local.name_prefix
+  location                   = var.primary_location
+  resource_group_name        = azurerm_resource_group.main.name
+  log_analytics_workspace_id = module.observability.workspace_id
+  tags                       = local.tags
+}

@@ -13,23 +13,23 @@
 resource "azurerm_eventgrid_topic" "lifecycle" {
   provider = azurerm.workload
 
-  name                = "evgt-${local.name_prefix}-lifecycle"
-  location            = var.primary_location
-  resource_group_name = azurerm_resource_group.main.name
+  name                = "evgt-${var.name_prefix}-lifecycle"
+  location            = var.location
+  resource_group_name = var.resource_group_name
 
   input_schema                  = "CloudEventSchemaV1_0"
   local_auth_enabled            = false
   public_network_access_enabled = true
 
-  tags = local.tags
+  tags = var.tags
 }
 
 resource "azurerm_monitor_diagnostic_setting" "eventgrid_lifecycle" {
   provider = azurerm.workload
 
-  name                       = "diag-evgt-${local.name_prefix}-lifecycle"
+  name                       = "diag-evgt-${var.name_prefix}-lifecycle"
   target_resource_id         = azurerm_eventgrid_topic.lifecycle.id
-  log_analytics_workspace_id = module.observability.workspace_id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
 
   enabled_log {
     category = "DeliveryFailures"

@@ -139,3 +139,13 @@ moved {
   from = azurerm_monitor_diagnostic_setting.iothub
   to   = module.iot.azurerm_monitor_diagnostic_setting.iothub
 }
+
+# eventgrid
+moved {
+  from = azurerm_eventgrid_topic.lifecycle
+  to   = module.eventgrid.azurerm_eventgrid_topic.lifecycle
+}
+moved {
+  from = azurerm_monitor_diagnostic_setting.eventgrid_lifecycle
+  to   = module.eventgrid.azurerm_monitor_diagnostic_setting.eventgrid_lifecycle
+}
