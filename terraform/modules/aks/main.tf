@@ -11,11 +11,11 @@ resource "azurerm_kubernetes_cluster" "main" {
   workload_identity_enabled = true
 
   default_node_pool {
-    name                   = "system"
-    vm_size                = var.vm_size
-    auto_scaling_enabled   = true
-    min_count              = var.min_node_count
-    max_count              = var.max_node_count
+    name                 = "system"
+    vm_size              = var.vm_size
+    auto_scaling_enabled = true
+    min_count            = var.min_node_count
+    max_count            = var.max_node_count
   }
 
   identity {
@@ -52,11 +52,11 @@ resource "azurerm_user_assigned_identity" "consumer" {
 resource "azurerm_federated_identity_credential" "consumer" {
   provider = azurerm.workload
 
-  name                          = "${var.name}-consumer-fedcred"
-  user_assigned_identity_id     = azurerm_user_assigned_identity.consumer.id
-  audience                      = ["api://AzureADTokenExchange"]
-  issuer                        = azurerm_kubernetes_cluster.main.oidc_issuer_url
-  subject                       = "system:serviceaccount:${var.consumer_k8s_namespace}:${var.consumer_k8s_service_account}"
+  name                      = "${var.name}-consumer-fedcred"
+  user_assigned_identity_id = azurerm_user_assigned_identity.consumer.id
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject                   = "system:serviceaccount:${var.consumer_k8s_namespace}:${var.consumer_k8s_service_account}"
 }
 
 # AKS kubelet identity needs AcrPull to pull images from ACR without admin creds.

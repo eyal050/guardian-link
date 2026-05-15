@@ -51,8 +51,8 @@ output "container_app_ml_stub_name" {
 }
 
 output "acr_login_server" { value = module.ml_stub.acr_login_server }
-output "acr_name"         { value = module.ml_stub.acr_name }
-output "ml_stub_fqdn"     { value = module.ml_stub.ml_stub_fqdn }
+output "acr_name" { value = module.ml_stub.acr_name }
+output "ml_stub_fqdn" { value = module.ml_stub.ml_stub_fqdn }
 
 output "aks_cluster_name" {
   value       = module.aks.cluster_name
