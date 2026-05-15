@@ -99,3 +99,21 @@ moved {
   from = azurerm_eventhub_consumer_group.inspector
   to   = module.eventhubs.azurerm_eventhub_consumer_group.inspector
 }
+
+# servicebus
+moved {
+  from = azurerm_servicebus_namespace.main
+  to   = module.servicebus.azurerm_servicebus_namespace.main
+}
+moved {
+  from = azurerm_servicebus_queue.crash_confirmed
+  to   = module.servicebus.azurerm_servicebus_queue.crash_confirmed
+}
+moved {
+  from = azurerm_eventhub_consumer_group.crash_classifier
+  to   = module.servicebus.azurerm_eventhub_consumer_group.crash_classifier
+}
+moved {
+  from = azurerm_monitor_diagnostic_setting.servicebus_namespace
+  to   = module.servicebus.azurerm_monitor_diagnostic_setting.servicebus_namespace
+}

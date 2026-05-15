@@ -52,8 +52,8 @@ resource "azurerm_linux_function_app" "crash_classifier" {
     # Sender scoped to the crash-confirmed queue (classifier_to_sb_sender below).
     # SB_NAMESPACE_FQDN is passed as a plain env var; the SDK's ServiceBusClient
     # takes fully_qualified_namespace directly (not the trigger __credential pattern).
-    "SB_NAMESPACE_FQDN" = "${azurerm_servicebus_namespace.main.name}.servicebus.windows.net"
-    "SB_CRASH_QUEUE"    = azurerm_servicebus_queue.crash_confirmed.name
+    "SB_NAMESPACE_FQDN" = "${module.servicebus.namespace_name}.servicebus.windows.net"
+    "SB_CRASH_QUEUE"    = module.servicebus.queue_name
 
     # Threshold and window size as config so they can be tuned without a redeploy.
     # 0.9 = architecture decision #11 (tolerate 10% false positives until model improves).
@@ -107,7 +107,7 @@ resource "azurerm_cosmosdb_sql_role_assignment" "classifier_to_cosmos_reader" {
 resource "azurerm_role_assignment" "classifier_to_sb_sender" {
   provider = azurerm.workload
 
-  scope                = azurerm_servicebus_queue.crash_confirmed.id
+  scope                = module.servicebus.queue_id
   role_definition_name = "Azure Service Bus Data Sender"
   principal_id         = azurerm_linux_function_app.crash_classifier.identity[0].principal_id
 }

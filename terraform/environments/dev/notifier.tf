@@ -69,9 +69,9 @@ resource "azurerm_linux_function_app" "notifier" {
   app_settings = {
     # SB identity-based trigger. 'SB_NAMESPACE' is the connection name
     # referenced in the @app.service_bus_queue_trigger decorator.
-    "SB_NAMESPACE__fullyQualifiedNamespace" = "${azurerm_servicebus_namespace.main.name}.servicebus.windows.net"
+    "SB_NAMESPACE__fullyQualifiedNamespace" = "${module.servicebus.namespace_name}.servicebus.windows.net"
     "SB_NAMESPACE__credential"              = "managedidentity"
-    "SB_CRASH_QUEUE"                        = azurerm_servicebus_queue.crash_confirmed.name
+    "SB_CRASH_QUEUE"                        = module.servicebus.queue_name
 
     "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
     "AzureWebJobsFeatureFlags"       = "EnableWorkerIndexing"
@@ -110,7 +110,7 @@ resource "azurerm_linux_function_app" "notifier" {
 resource "azurerm_role_assignment" "notifier_to_sb_receiver" {
   provider = azurerm.workload
 
-  scope                = azurerm_servicebus_queue.crash_confirmed.id
+  scope                = module.servicebus.queue_id
   role_definition_name = "Azure Service Bus Data Receiver"
   principal_id         = azurerm_linux_function_app.notifier.identity[0].principal_id
 }

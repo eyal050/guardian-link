@@ -1,19 +1,20 @@
 output "namespace_id" {
-  value       = azurerm_servicebus_namespace.main.id
-  description = "Service Bus namespace resource ID."
+  value = azurerm_servicebus_namespace.main.id
 }
 
 output "namespace_name" {
-  value       = azurerm_servicebus_namespace.main.name
-  description = "Service Bus namespace name."
+  value = azurerm_servicebus_namespace.main.name
 }
 
-output "crash_confirmed_queue_id" {
-  value       = azurerm_servicebus_queue.crash_confirmed.id
-  description = "crash-confirmed queue resource ID."
+output "queue_id" {
+  value = azurerm_servicebus_queue.crash_confirmed.id
 }
 
-output "crash_confirmed_queue_name" {
-  value       = azurerm_servicebus_queue.crash_confirmed.name
-  description = "crash-confirmed queue name."
+output "queue_name" {
+  value = azurerm_servicebus_queue.crash_confirmed.name
+}
+
+output "classifier_consumer_group_name" {
+  value       = azurerm_eventhub_consumer_group.crash_classifier.name
+  description = "Crash-classifier EH consumer group name."
 }
