@@ -103,9 +103,9 @@ resource "azurerm_linux_function_app" "telemetry_writer" {
     # the Function App's system-assigned MI (cosmos.tf has
     # local_authentication_disabled=true, so connection-string auth
     # would fail at the data plane).
-    "COSMOS_ENDPOINT"  = azurerm_cosmosdb_account.main.endpoint
-    "COSMOS_DATABASE"  = azurerm_cosmosdb_sql_database.main.name
-    "COSMOS_CONTAINER" = azurerm_cosmosdb_sql_container.telemetry.name
+    "COSMOS_ENDPOINT"  = module.cosmos.account_endpoint
+    "COSMOS_DATABASE"  = module.cosmos.database_name
+    "COSMOS_CONTAINER" = module.cosmos.telemetry_container_name
 
     # Raw-archive Blob target for slice β. Identity-based:
     # DefaultAzureCredential resolves the Function App's MI and the
@@ -161,12 +161,12 @@ resource "azurerm_cosmosdb_sql_role_assignment" "func_to_cosmos_writer" {
   provider = azurerm.workload
 
   resource_group_name = azurerm_resource_group.main.name
-  account_name        = azurerm_cosmosdb_account.main.name
+  account_name        = module.cosmos.account_name
   name                = random_uuid.cosmos_writer_role_assignment.result
 
-  role_definition_id = "${azurerm_cosmosdb_account.main.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
+  role_definition_id = "${module.cosmos.account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
   principal_id       = azurerm_linux_function_app.telemetry_writer.identity[0].principal_id
-  scope              = azurerm_cosmosdb_account.main.id
+  scope              = module.cosmos.account_id
 }
 
 # Slice β: raw archive write path. 'Storage Blob Data Contributor'

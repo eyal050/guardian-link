@@ -76,9 +76,9 @@ resource "azurerm_linux_function_app" "notifier" {
     "SCM_DO_BUILD_DURING_DEPLOYMENT" = "true"
     "AzureWebJobsFeatureFlags"       = "EnableWorkerIndexing"
 
-    "COSMOS_ENDPOINT"                = azurerm_cosmosdb_account.main.endpoint
-    "COSMOS_DATABASE"                = azurerm_cosmosdb_sql_database.main.name
-    "COSMOS_NOTIFICATIONS_CONTAINER" = azurerm_cosmosdb_sql_container.notifications.name
+    "COSMOS_ENDPOINT"                = module.cosmos.account_endpoint
+    "COSMOS_DATABASE"                = module.cosmos.database_name
+    "COSMOS_NOTIFICATIONS_CONTAINER" = module.cosmos.notifications_container_name
 
     # Key Vault references — resolved at runtime by the Function host once
     # notifier_to_kv_secrets_user RBAC propagates (30–60s after apply).
@@ -123,12 +123,12 @@ resource "azurerm_cosmosdb_sql_role_assignment" "notifier_to_cosmos_contributor"
   provider = azurerm.workload
 
   resource_group_name = azurerm_resource_group.main.name
-  account_name        = azurerm_cosmosdb_account.main.name
+  account_name        = module.cosmos.account_name
   name                = random_uuid.cosmos_notifier_role_assignment.result
 
-  role_definition_id = "${azurerm_cosmosdb_account.main.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
+  role_definition_id = "${module.cosmos.account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
   principal_id       = azurerm_linux_function_app.notifier.identity[0].principal_id
-  scope              = azurerm_cosmosdb_account.main.id
+  scope              = module.cosmos.account_id
 }
 
 # Key Vault Secrets User — allows the Function host to resolve

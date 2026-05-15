@@ -59,3 +59,25 @@ moved {
   from = azurerm_key_vault_secret.appi_connection_string
   to   = module.keyvault.azurerm_key_vault_secret.appi_connection_string
 }
+
+# cosmos
+moved {
+  from = azurerm_cosmosdb_account.main
+  to   = module.cosmos.azurerm_cosmosdb_account.main
+}
+moved {
+  from = azurerm_cosmosdb_sql_database.main
+  to   = module.cosmos.azurerm_cosmosdb_sql_database.main
+}
+moved {
+  from = azurerm_cosmosdb_sql_container.telemetry
+  to   = module.cosmos.azurerm_cosmosdb_sql_container.telemetry
+}
+moved {
+  from = azurerm_cosmosdb_sql_container.notifications
+  to   = module.cosmos.azurerm_cosmosdb_sql_container.notifications
+}
+moved {
+  from = azurerm_monitor_diagnostic_setting.cosmos
+  to   = module.cosmos.azurerm_monitor_diagnostic_setting.cosmos
+}

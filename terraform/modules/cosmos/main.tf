@@ -27,9 +27,9 @@
 resource "azurerm_cosmosdb_account" "main" {
   provider = azurerm.workload
 
-  name                = "cosmos-${local.name_prefix}"
-  location            = var.primary_location
-  resource_group_name = azurerm_resource_group.main.name
+  name                = "cosmos-${var.name_prefix}"
+  location            = var.location
+  resource_group_name = var.resource_group_name
 
   offer_type = "Standard"
   kind       = "GlobalDocumentDB"
@@ -43,14 +43,14 @@ resource "azurerm_cosmosdb_account" "main" {
   }
 
   geo_location {
-    location          = var.primary_location
+    location          = var.location
     failover_priority = 0
   }
 
   public_network_access_enabled = true
   local_authentication_disabled = true
 
-  tags = local.tags
+  tags = var.tags
 }
 
 # One database per workload — Cosmos billing/scoping is per-container
@@ -59,7 +59,7 @@ resource "azurerm_cosmosdb_sql_database" "main" {
   provider = azurerm.workload
 
   name                = "guardianlink"
-  resource_group_name = azurerm_resource_group.main.name
+  resource_group_name = var.resource_group_name
   account_name        = azurerm_cosmosdb_account.main.name
 }
 
@@ -85,7 +85,7 @@ resource "azurerm_cosmosdb_sql_container" "telemetry" {
   provider = azurerm.workload
 
   name                = "telemetry"
-  resource_group_name = azurerm_resource_group.main.name
+  resource_group_name = var.resource_group_name
   account_name        = azurerm_cosmosdb_account.main.name
   database_name       = azurerm_cosmosdb_sql_database.main.name
 
@@ -111,7 +111,7 @@ resource "azurerm_cosmosdb_sql_container" "notifications" {
   provider = azurerm.workload
 
   name                = "notifications"
-  resource_group_name = azurerm_resource_group.main.name
+  resource_group_name = var.resource_group_name
   account_name        = azurerm_cosmosdb_account.main.name
   database_name       = azurerm_cosmosdb_sql_database.main.name
 
@@ -122,9 +122,9 @@ resource "azurerm_cosmosdb_sql_container" "notifications" {
 resource "azurerm_monitor_diagnostic_setting" "cosmos" {
   provider = azurerm.workload
 
-  name                       = "diag-cosmos-${local.name_prefix}"
+  name                       = "diag-cosmos-${var.name_prefix}"
   target_resource_id         = azurerm_cosmosdb_account.main.id
-  log_analytics_workspace_id = module.observability.workspace_id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
 
   enabled_log {
     category = "DataPlaneRequests"
