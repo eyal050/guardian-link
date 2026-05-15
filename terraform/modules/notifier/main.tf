@@ -108,6 +108,11 @@ resource "azurerm_linux_function_app" "notifier" {
       # These are set manually post-apply and must not be reset by TF.
       app_settings["ACS_SENDER_PHONE"],
       app_settings["ACS_SENDER_EMAIL"],
+      # Set by the deployment pipeline post-release; both casings exist for legacy reasons.
+      app_settings["DEPLOY_VERSION"],
+      app_settings["deploy-version"],
+      # Pipeline also stamps the deploy version as a tag.
+      tags["deploy-version"],
     ]
   }
 

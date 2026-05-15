@@ -16,6 +16,15 @@ resource "azurerm_kubernetes_cluster" "main" {
     auto_scaling_enabled = true
     min_count            = var.min_node_count
     max_count            = var.max_node_count
+
+    # Azure populates upgrade_settings on cluster creation even when not
+    # specified, then a refresh-only plan flags it as drift. Pinning the
+    # provider's defaults here keeps plans clean.
+    upgrade_settings {
+      drain_timeout_in_minutes      = 0
+      max_surge                     = "10%"
+      node_soak_duration_in_minutes = 0
+    }
   }
 
   identity {

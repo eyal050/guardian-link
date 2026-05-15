@@ -125,6 +125,12 @@ resource "azurerm_linux_function_app" "telemetry_writer" {
   lifecycle {
     ignore_changes = [
       app_settings["WEBSITE_RUN_FROM_PACKAGE"],
+      # Deployment pipeline writes these via `az functionapp config appsettings set`
+      # after each release. Both casings exist for legacy reasons.
+      app_settings["DEPLOY_VERSION"],
+      app_settings["deploy-version"],
+      # Pipeline also stamps the deploy version as a tag.
+      tags["deploy-version"],
     ]
   }
 

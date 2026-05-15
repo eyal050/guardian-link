@@ -46,6 +46,11 @@ resource "azurerm_linux_function_app" "metrics" {
   lifecycle {
     ignore_changes = [
       app_settings["WEBSITE_RUN_FROM_PACKAGE"],
+      # Set by the deployment pipeline post-release; both casings exist for legacy reasons.
+      app_settings["DEPLOY_VERSION"],
+      app_settings["deploy-version"],
+      # Pipeline also stamps the deploy version as a tag.
+      tags["deploy-version"],
     ]
   }
 
