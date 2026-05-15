@@ -197,3 +197,37 @@ moved {
   from = azurerm_container_app.ml_stub
   to   = module.ml_stub.azurerm_container_app.ml_stub
 }
+
+# functions (telemetry-writer)
+moved {
+  from = azurerm_eventhub_consumer_group.telemetry_writer
+  to   = module.functions.azurerm_eventhub_consumer_group.telemetry_writer
+}
+moved {
+  from = azurerm_service_plan.functions
+  to   = module.functions.azurerm_service_plan.functions
+}
+moved {
+  from = azurerm_linux_function_app.telemetry_writer
+  to   = module.functions.azurerm_linux_function_app.telemetry_writer
+}
+moved {
+  from = azurerm_role_assignment.func_to_eh_receiver
+  to   = module.functions.azurerm_role_assignment.func_to_eh_receiver
+}
+moved {
+  from = random_uuid.cosmos_writer_role_assignment
+  to   = module.functions.random_uuid.cosmos_writer_role_assignment
+}
+moved {
+  from = azurerm_cosmosdb_sql_role_assignment.func_to_cosmos_writer
+  to   = module.functions.azurerm_cosmosdb_sql_role_assignment.func_to_cosmos_writer
+}
+moved {
+  from = azurerm_role_assignment.func_to_blob_archive
+  to   = module.functions.azurerm_role_assignment.func_to_blob_archive
+}
+moved {
+  from = azurerm_monitor_diagnostic_setting.functions_writer
+  to   = module.functions.azurerm_monitor_diagnostic_setting.functions_writer
+}

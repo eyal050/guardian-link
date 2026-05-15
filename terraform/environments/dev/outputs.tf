@@ -26,7 +26,7 @@ output "resource_group_name" {
 }
 
 output "func_telemetry_writer_name" {
-  value       = azurerm_linux_function_app.telemetry_writer.name
+  value       = module.functions.telemetry_writer_name
   description = "Telemetry writer Function App name."
 }
 

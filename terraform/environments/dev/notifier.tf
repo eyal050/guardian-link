@@ -50,7 +50,7 @@ resource "azurerm_linux_function_app" "notifier" {
   name                = "func-${local.name_prefix}-notifier"
   location            = var.primary_location
   resource_group_name = azurerm_resource_group.main.name
-  service_plan_id     = azurerm_service_plan.functions.id
+  service_plan_id     = module.functions.service_plan_id
 
   storage_account_name       = module.storage.main_name
   storage_account_access_key = module.storage.main_primary_access_key

@@ -136,3 +136,30 @@ module "ml_stub" {
   log_analytics_workspace_id = module.observability.workspace_id
   tags                       = local.tags
 }
+
+module "functions" {
+  source = "../../modules/functions"
+  providers = {
+    azurerm.workload = azurerm.workload
+  }
+
+  name_prefix                        = local.name_prefix
+  location                           = var.primary_location
+  resource_group_name                = azurerm_resource_group.main.name
+  log_analytics_workspace_id         = module.observability.workspace_id
+  app_insights_connection_string     = module.observability.app_insights_connection_string
+  storage_account_name               = module.storage.main_name
+  storage_account_primary_access_key = module.storage.main_primary_access_key
+  raw_archive_storage_account_id     = module.storage.raw_archive_id
+  raw_archive_blob_endpoint          = module.storage.raw_archive_primary_blob_endpoint
+  raw_archive_container_name         = module.storage.telemetry_raw_container_name
+  eventhub_namespace_name            = module.eventhubs.namespace_name
+  telemetry_hub_id                   = module.eventhubs.telemetry_hub_id
+  telemetry_hub_name                 = module.eventhubs.telemetry_hub_name
+  cosmos_account_id                  = module.cosmos.account_id
+  cosmos_account_endpoint            = module.cosmos.account_endpoint
+  cosmos_account_name                = module.cosmos.account_name
+  cosmos_database_name               = module.cosmos.database_name
+  cosmos_telemetry_container_name    = module.cosmos.telemetry_container_name
+  tags                               = local.tags
+}
