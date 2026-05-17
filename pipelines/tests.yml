@@ -3,13 +3,11 @@
 # Triggered automatically on PRs targeting main; can also be run manually.
 name: '$(Build.BuildId) - tests - $(Date:yyyyMMdd)'
 
-trigger: none   # manual and PR-triggered only
-
-pr:
+trigger:
   branches:
     include:
-      - main
       - dev
+      - main
   paths:
     include:
       - apps/**
@@ -17,6 +15,8 @@ pr:
       - pyproject.toml
       - scripts/run-tests.sh
       - pipelines/tests.yml
+
+pr: none
 
 variables:
   PYTHON_VERSION: '3.10'

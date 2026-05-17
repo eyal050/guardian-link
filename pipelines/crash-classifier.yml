@@ -2,6 +2,7 @@
 trigger:
   branches:
     include:
+      - dev
       - main
   paths:
     include:
@@ -10,9 +11,12 @@ trigger:
       - pipelines/templates/function-app.yml
 
 variables:
-  - group: guardianlink-infra-outputs
   - name: FUNCTION_APP_NAME
     value: $(FUNC_CRASH_CLASSIFIER_NAME)
+  - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/dev') }}:
+    - group: guardianlink-infra-outputs
+  - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+    - group: guardianlink-infra-outputs-prod
 
 stages:
   - template: templates/function-app.yml
