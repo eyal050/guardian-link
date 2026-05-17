@@ -178,6 +178,17 @@ See [`SETUP.md`](SETUP.md) for prerequisites, Terraform variables, ADO variable 
 
 ---
 
+## Branching & deployment
+
+- **GitHub is the source of truth.** All code lives here; ADO is a one-way mirror used only for pipeline execution.
+- `dev` branch: a push (direct or via PR) mirrors to ADO `dev` and deploys to the dev Azure environment.
+- `main` branch: protected (PR required, linear history). Merging a PR — typically from `dev` — mirrors to ADO `main` and deploys to the prod Azure environment, gated on manual approval at the ADO `prod` env.
+- Do **not** push directly to ADO. The mirror workflow uses `--force-with-lease` and will surface (or overwrite) any out-of-band ADO commits.
+
+Full design: [`docs/superpowers/specs/2026-05-17-branching-strategy-design.md`](docs/superpowers/specs/2026-05-17-branching-strategy-design.md).
+
+---
+
 ## AI-augmented workflow
 
 This project was built using an AI-augmented engineering workflow. Architectural decisions, tradeoff analysis, and operational design are mine; Claude Code executed implementation under direction.
