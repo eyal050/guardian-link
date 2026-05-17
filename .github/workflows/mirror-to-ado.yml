@@ -4,23 +4,37 @@ name: Mirror to Azure DevOps
 on:
   push:
     branches:
+      - dev
       - main
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to mirror (dev or main)'
+        required: true
+        default: 'dev'
 
 jobs:
   mirror:
-    name: Push to ADO git
+    name: Push ${{ github.ref_name }} to ADO
     runs-on: ubuntu-latest
     steps:
       - name: Checkout full history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.ref }}
 
-      - name: Push mirror to ADO
+      - name: Push branch + tags to ADO
         run: |
+          BRANCH="${{ github.ref_name }}"
           git remote add ado "https://eyal050:${ADO_MIRROR_PAT}@dev.azure.com/eyal050/guardianlink/_git/guardian-link"
-          git push ado --all
+          # Fetch ADO refs so --force-with-lease has a baseline. Without this,
+          # on a fresh runner the lease has no expected value and the push
+          # either fails with "stale info" (if remote ref exists) or behaves
+          # like --force (if it doesn't). Fetching first makes the lease
+          # meaningful: push only if ADO is at the commit we last saw.
+          git fetch ado --prune || true
+          git push ado "HEAD:refs/heads/${BRANCH}" --force-with-lease
           git push ado --tags
         env:
           ADO_MIRROR_PAT: ${{ secrets.ADO_MIRROR_PAT }}
