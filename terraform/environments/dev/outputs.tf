@@ -1,22 +1,22 @@
 output "postgres_fqdn" {
-  value       = azurerm_postgresql_flexible_server.main.fqdn
+  value       = module.postgres.fqdn
   description = "Postgres Flexible Server FQDN for migration scripts."
 }
 
 output "postgres_admin_password" {
-  value       = random_password.postgres_admin.result
+  value       = module.postgres.admin_password
   sensitive   = true
   description = "Postgres admin password (sensitive)."
 }
 
 output "postgres_notifier_password" {
-  value       = random_password.postgres_notifier.result
+  value       = module.postgres.notifier_password
   sensitive   = true
   description = "Postgres notifier app-user password (sensitive)."
 }
 
 output "app_insights_name" {
-  value       = azurerm_application_insights.main.name
+  value       = module.observability.app_insights_name
   description = "App Insights component name for release annotations."
 }
 
@@ -26,29 +26,33 @@ output "resource_group_name" {
 }
 
 output "func_telemetry_writer_name" {
-  value       = azurerm_linux_function_app.telemetry_writer.name
+  value       = module.functions.telemetry_writer_name
   description = "Telemetry writer Function App name."
 }
 
 output "func_crash_classifier_name" {
-  value       = azurerm_linux_function_app.crash_classifier.name
+  value       = module.crash_classifier.name
   description = "Crash classifier Function App name."
 }
 
 output "func_notifier_name" {
-  value       = azurerm_linux_function_app.notifier.name
+  value       = module.notifier.name
   description = "Notifier Function App name."
 }
 
 output "func_metrics_name" {
-  value       = azurerm_linux_function_app.metrics.name
+  value       = module.metrics.name
   description = "Metrics Function App name."
 }
 
 output "container_app_ml_stub_name" {
-  value       = azurerm_container_app.ml_stub.name
+  value       = module.ml_stub.container_app_name
   description = "ML stub Container App name."
 }
+
+output "acr_login_server" { value = module.ml_stub.acr_login_server }
+output "acr_name" { value = module.ml_stub.acr_name }
+output "ml_stub_fqdn" { value = module.ml_stub.ml_stub_fqdn }
 
 output "aks_cluster_name" {
   value       = module.aks.cluster_name
@@ -61,21 +65,21 @@ output "consumer_identity_client_id" {
 }
 
 output "storage_blob_url" {
-  value       = azurerm_storage_account.main.primary_blob_endpoint
+  value       = module.storage.main_primary_blob_endpoint
   description = "Primary blob endpoint for the consumer checkpoint store."
 }
 
 output "eventhub_fqdn" {
-  value       = "${azurerm_eventhub_namespace.main.name}.servicebus.windows.net"
+  value       = "${module.eventhubs.namespace_name}.servicebus.windows.net"
   description = "Event Hub namespace FQDN for the consumer."
 }
 
 output "eventhub_name" {
-  value       = azurerm_eventhub.telemetry.name
+  value       = module.eventhubs.telemetry_hub_name
   description = "Event Hub name (telemetry)."
 }
 
 output "key_vault_name" {
-  value       = azurerm_key_vault.main.name
+  value       = module.keyvault.name
   description = "Key Vault name for the CSI driver SecretProviderClass."
 }

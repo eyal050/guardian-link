@@ -13,6 +13,7 @@ parameters:
 trigger:
   branches:
     include:
+      - dev
       - main
   paths:
     include:
@@ -26,7 +27,8 @@ variables:
     value: 1.9.8
 
 stages:
-  - ${{ if eq(parameters.action, 'apply') }}:
+  # === Apply, dev branch -> dev env ===
+  - ${{ if and(eq(parameters.action, 'apply'), eq(variables['Build.SourceBranch'], 'refs/heads/dev')) }}:
     - template: templates/terraform-env.yml
       parameters:
         environment: dev
@@ -165,9 +167,9 @@ stages:
             - bash: |
                 set -euo pipefail
                 API="https://dev.azure.com/${ADO_ORG}/guardianlink/_apis/pipelines"
-                PAYLOAD='{"resources":{"repositories":{"self":{"refName":"refs/heads/main"}}}}'
+                PAYLOAD='{"resources":{"repositories":{"self":{"refName":"refs/heads/dev"}}}}'
                 # Pipeline IDs: 7=telemetry-writer, 8=crash-classifier,
-                #               9=notifier, 10=metrics, 11=ml-stub
+                #               9=notifier, 10=metrics, 11=ml-stub, 12=aks-consumer
                 for pid in 7 8 9 10 11 12; do
                   BODY=$(curl -s -u ":${ADO_SETUP_PAT}" \
                     -X POST -H "Content-Type: application/json" \
@@ -183,11 +185,13 @@ stages:
                     exit 1
                   fi
                 done
-              displayName: Trigger app pipelines
+              displayName: Trigger app pipelines (dev)
               env:
                 ADO_SETUP_PAT: $(ADO_SETUP_PAT)
                 ADO_ORG: $(ADO_ORG)
 
+  # === Apply, main branch -> prod env ===
+  - ${{ if and(eq(parameters.action, 'apply'), eq(variables['Build.SourceBranch'], 'refs/heads/main')) }}:
     - template: templates/terraform-env.yml
       parameters:
         environment: prod
@@ -195,9 +199,162 @@ stages:
         variableGroup: guardianlink-prod
         adoEnvironment: prod
         stateKey: guardianlink-prod
-        dependsOn: [post_apply_dev]
 
-  - ${{ if eq(parameters.action, 'destroy') }}:
+    - stage: post_apply_prod
+      displayName: Post-apply Prod
+      dependsOn: apply_prod
+      condition: succeeded()
+      variables:
+        - group: guardianlink-backend
+        - group: guardianlink-prod
+        - group: guardianlink-infra-outputs-prod
+      jobs:
+        - job: publish_and_trigger
+          displayName: Publish prod outputs + trigger app pipelines
+          pool:
+            vmImage: ubuntu-latest
+          steps:
+            - template: templates/steps/install-terraform.yml
+
+            - task: AzureCLI@2
+              displayName: Update guardianlink-infra-outputs-prod variable group
+              env:
+                ADO_SETUP_PAT: $(ADO_SETUP_PAT)
+                ADO_ORG: $(ADO_ORG)
+                ADO_PROJECT_ID: $(ADO_PROJECT_ID)
+              inputs:
+                azureSubscription: guardianlink-azure
+                scriptType: bash
+                scriptLocation: inlineScript
+                addSpnToEnvironment: true
+                inlineScript: |
+                  set -euo pipefail
+                  cd terraform/environments/prod
+                  export ARM_CLIENT_ID=$servicePrincipalId
+                  export ARM_TENANT_ID=$tenantId
+                  export ARM_SUBSCRIPTION_ID=$(TF_BACKEND_SUBSCRIPTION_ID)
+                  export ARM_USE_OIDC=true
+                  export ARM_OIDC_TOKEN=$idToken
+                  terraform init \
+                    -backend-config="subscription_id=$(TF_BACKEND_SUBSCRIPTION_ID)" \
+                    -backend-config="resource_group_name=$(TF_BACKEND_RESOURCE_GROUP)" \
+                    -backend-config="storage_account_name=$(TF_BACKEND_STORAGE_ACCOUNT)" \
+                    -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
+                    -backend-config="key=guardianlink-prod" \
+                    -input=false -reconfigure
+                  TF_JSON=$(terraform output -json)
+                  RG=$(echo "$TF_JSON"             | jq -r '.resource_group_name.value')
+                  APPI=$(echo "$TF_JSON"           | jq -r '.app_insights_name.value')
+                  ACR_SERVER=$(echo "$TF_JSON"     | jq -r '.acr_login_server.value')
+                  ACR_NAME=$(echo "$TF_JSON"       | jq -r '.acr_name.value')
+                  FUNC_TW=$(echo "$TF_JSON"        | jq -r '.func_telemetry_writer_name.value')
+                  FUNC_CC=$(echo "$TF_JSON"        | jq -r '.func_crash_classifier_name.value')
+                  FUNC_NOT=$(echo "$TF_JSON"       | jq -r '.func_notifier_name.value')
+                  FUNC_MET=$(echo "$TF_JSON"       | jq -r '.func_metrics_name.value')
+                  CA_ML=$(echo "$TF_JSON"          | jq -r '.container_app_ml_stub_name.value')
+                  AKS_NAME=$(echo "$TF_JSON"              | jq -r '.aks_cluster_name.value')
+                  CONSUMER_WI_CLIENT_ID=$(echo "$TF_JSON" | jq -r '.consumer_identity_client_id.value')
+                  STORAGE_BLOB_URL=$(echo "$TF_JSON"      | jq -r '.storage_blob_url.value')
+                  EH_FQDN=$(echo "$TF_JSON"              | jq -r '.eventhub_fqdn.value')
+                  EH_NAME=$(echo "$TF_JSON"              | jq -r '.eventhub_name.value')
+                  KV_NAME=$(echo "$TF_JSON"              | jq -r '.key_vault_name.value')
+
+                  ADO_PROJECT="guardianlink"
+                  VG_NAME="guardianlink-infra-outputs-prod"
+                  API="https://dev.azure.com/${ADO_ORG}/${ADO_PROJECT}/_apis/distributedtask"
+
+                  VARIABLES=$(jq -n \
+                    --arg rg "$RG" --arg appi "$APPI" \
+                    --arg acr_s "$ACR_SERVER" --arg acr_n "$ACR_NAME" \
+                    --arg tw "$FUNC_TW" --arg cc "$FUNC_CC" \
+                    --arg not "$FUNC_NOT" --arg met "$FUNC_MET" \
+                    --arg ca "$CA_ML" \
+                    --arg aks_name "$AKS_NAME" \
+                    --arg consumer_wi_client_id "$CONSUMER_WI_CLIENT_ID" \
+                    --arg storage_blob_url "$STORAGE_BLOB_URL" \
+                    --arg eh_fqdn "$EH_FQDN" \
+                    --arg eh_name "$EH_NAME" \
+                    --arg kv_name "$KV_NAME" \
+                    '{
+                      RESOURCE_GROUP_NAME:        {value: $rg},
+                      APP_INSIGHTS_NAME:          {value: $appi},
+                      ACR_LOGIN_SERVER:           {value: $acr_s},
+                      ACR_NAME:                   {value: $acr_n},
+                      FUNC_TELEMETRY_WRITER_NAME: {value: $tw},
+                      FUNC_CRASH_CLASSIFIER_NAME: {value: $cc},
+                      FUNC_NOTIFIER_NAME:         {value: $not},
+                      FUNC_METRICS_NAME:          {value: $met},
+                      CONTAINER_APP_ML_STUB_NAME: {value: $ca},
+                      AKS_CLUSTER_NAME:             {value: $aks_name},
+                      CONSUMER_IDENTITY_CLIENT_ID:  {value: $consumer_wi_client_id},
+                      STORAGE_BLOB_URL:             {value: $storage_blob_url},
+                      EVENT_HUB_FQDN:               {value: $eh_fqdn},
+                      EVENT_HUB_NAME:               {value: $eh_name},
+                      KV_NAME:                      {value: $kv_name}
+                    }')
+
+                  PROJECT_REF=$(jq -n \
+                    --arg vgname "$VG_NAME" \
+                    --arg proj_id "$ADO_PROJECT_ID" \
+                    --arg proj_name "$ADO_PROJECT" \
+                    '[{name: $vgname, projectReference: {id: $proj_id, name: $proj_name}}]')
+
+                  VG_RESP=$(curl -sf -u ":${ADO_SETUP_PAT}" \
+                    "${API}/variablegroups?groupName=${VG_NAME}&api-version=7.0")
+                  VG_ID=$(echo "$VG_RESP" | jq -r '.value[0].id // empty')
+
+                  if [ -n "$VG_ID" ]; then
+                    PAYLOAD=$(jq -n \
+                      --argjson id "$VG_ID" --arg name "$VG_NAME" \
+                      --argjson vars "$VARIABLES" \
+                      --argjson refs "$PROJECT_REF" \
+                      '{id: $id, name: $name, type: "Vsts", variables: $vars, variableGroupProjectReferences: $refs}')
+                    curl -sf -u ":${ADO_SETUP_PAT}" \
+                      -X PUT -H "Content-Type: application/json" \
+                      -d "$PAYLOAD" \
+                      "${API}/variablegroups/${VG_ID}?api-version=7.0" > /dev/null
+                    echo "Variable group ${VG_NAME} updated (id=${VG_ID})."
+                  else
+                    PAYLOAD=$(jq -n \
+                      --arg name "$VG_NAME" \
+                      --argjson vars "$VARIABLES" \
+                      --argjson refs "$PROJECT_REF" \
+                      '{name: $name, type: "Vsts", variables: $vars, variableGroupProjectReferences: $refs}')
+                    curl -sf -u ":${ADO_SETUP_PAT}" \
+                      -X POST -H "Content-Type: application/json" \
+                      -d "$PAYLOAD" \
+                      "${API}/variablegroups?api-version=7.0" > /dev/null
+                    echo "Variable group ${VG_NAME} created."
+                  fi
+
+            - bash: |
+                set -euo pipefail
+                API="https://dev.azure.com/${ADO_ORG}/guardianlink/_apis/pipelines"
+                PAYLOAD='{"resources":{"repositories":{"self":{"refName":"refs/heads/main"}}}}'
+                # Pipeline IDs: 7=telemetry-writer, 8=crash-classifier,
+                #               9=notifier, 10=metrics, 11=ml-stub, 12=aks-consumer
+                for pid in 7 8 9 10 11 12; do
+                  BODY=$(curl -s -u ":${ADO_SETUP_PAT}" \
+                    -X POST -H "Content-Type: application/json" \
+                    -d "$PAYLOAD" \
+                    -w "\nHTTP_STATUS:%{http_code}" \
+                    "${API}/${pid}/runs?api-version=7.0")
+                  STATUS=$(echo "$BODY" | grep "HTTP_STATUS:" | cut -d: -f2)
+                  echo "Pipeline ${pid}: HTTP ${STATUS}"
+                  if [ "$STATUS" != "200" ] && [ "$STATUS" != "201" ]; then
+                    echo "--- Response body ---"
+                    echo "$BODY" | grep -v "HTTP_STATUS:"
+                    echo "---------------------"
+                    exit 1
+                  fi
+                done
+              displayName: Trigger app pipelines (main)
+              env:
+                ADO_SETUP_PAT: $(ADO_SETUP_PAT)
+                ADO_ORG: $(ADO_ORG)
+
+  # === Destroy, dev branch -> dev only ===
+  - ${{ if and(eq(parameters.action, 'destroy'), eq(variables['Build.SourceBranch'], 'refs/heads/dev')) }}:
     - stage: destroy_dev
       displayName: Destroy Dev
       dependsOn: []
@@ -249,10 +406,11 @@ stages:
                       TF_VAR_owner: $(TF_VAR_owner)
                       TF_VAR_workload_subscription_id: $(TF_VAR_workload_subscription_id)
 
+  # === Destroy, main branch -> prod only ===
+  - ${{ if and(eq(parameters.action, 'destroy'), eq(variables['Build.SourceBranch'], 'refs/heads/main')) }}:
     - stage: destroy_prod
       displayName: Destroy Prod
-      dependsOn: destroy_dev
-      condition: succeeded()
+      dependsOn: []
       variables:
         - group: guardianlink-backend
         - group: guardianlink-prod

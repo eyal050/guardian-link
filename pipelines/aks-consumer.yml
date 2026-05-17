@@ -4,6 +4,7 @@ name: '$(Build.BuildId) - $(Date:yyyyMMdd) - $(Rev:r)'
 trigger:
   branches:
     include:
+      - dev
       - main
   paths:
     include:
@@ -24,7 +25,10 @@ stages:
         pool:
           vmImage: ubuntu-latest
         variables:
-          - group: guardianlink-infra-outputs
+          - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/dev') }}:
+            - group: guardianlink-infra-outputs
+          - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+            - group: guardianlink-infra-outputs-prod
         steps:
           - script: |
               SHORT_SHA="${BUILD_SOURCEVERSION:0:8}"
@@ -70,78 +74,156 @@ stages:
                   --ignore-unfixed \
                   "$(ACR_LOGIN_SERVER)/$(IMAGE_REPOSITORY):${TAG}"
 
-  - stage: deploy_dev
-    displayName: Deploy to Dev AKS
-    dependsOn: build_scan
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-    variables:
-      - group: guardianlink-infra-outputs
-      - group: guardianlink-dev
-      - name: IMAGE_TAG
-        value: $[ stageDependencies.build_scan.build_scan.outputs['set_tag.IMAGE_TAG'] ]
-    jobs:
-      - deployment: deploy
-        displayName: kubectl apply consumer manifests
-        environment: dev
-        pool:
-          vmImage: ubuntu-latest
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - checkout: self
+  - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/dev') }}:
+    - stage: deploy_dev
+      displayName: Deploy to Dev AKS
+      dependsOn: build_scan
+      condition: succeeded()
+      variables:
+        - group: guardianlink-infra-outputs
+        - group: guardianlink-dev
+        - name: IMAGE_TAG
+          value: $[ stageDependencies.build_scan.build_scan.outputs['set_tag.IMAGE_TAG'] ]
+      jobs:
+        - deployment: deploy
+          displayName: kubectl apply consumer manifests
+          environment: dev
+          pool:
+            vmImage: ubuntu-latest
+          strategy:
+            runOnce:
+              deploy:
+                steps:
+                  - checkout: self
 
-                - task: AzureCLI@2
-                  displayName: Get AKS credentials
-                  inputs:
-                    azureSubscription: guardianlink-azure
-                    scriptType: bash
-                    scriptLocation: inlineScript
-                    inlineScript: |
-                      az aks get-credentials \
-                        --name "$(AKS_CLUSTER_NAME)" \
-                        --resource-group "$(RESOURCE_GROUP_NAME)" \
-                        --overwrite-existing
+                  - task: AzureCLI@2
+                    displayName: Get AKS credentials
+                    inputs:
+                      azureSubscription: guardianlink-azure
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        az aks get-credentials \
+                          --name "$(AKS_CLUSTER_NAME)" \
+                          --resource-group "$(RESOURCE_GROUP_NAME)" \
+                          --overwrite-existing
 
-                - task: Bash@3
-                  displayName: Install kubectl
-                  inputs:
-                    targetType: inline
-                    script: |
-                      curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-                      chmod +x kubectl
-                      sudo mv kubectl /usr/local/bin/kubectl
+                  - task: Bash@3
+                    displayName: Install kubectl
+                    inputs:
+                      targetType: inline
+                      script: |
+                        curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                        chmod +x kubectl
+                        sudo mv kubectl /usr/local/bin/kubectl
 
-                - task: AzureCLI@2
-                  displayName: Apply manifests with envsubst
-                  inputs:
-                    azureSubscription: guardianlink-azure
-                    scriptType: bash
-                    scriptLocation: inlineScript
-                    inlineScript: |
-                      set -euo pipefail
-                      export ACR_LOGIN_SERVER="$(ACR_LOGIN_SERVER)"
-                      export IMAGE_TAG="$(IMAGE_TAG)"
-                      export CONSUMER_IDENTITY_CLIENT_ID="$(CONSUMER_IDENTITY_CLIENT_ID)"
-                      export AZURE_TENANT_ID="$(AZURE_TENANT_ID)"
-                      export KV_NAME="$(KV_NAME)"
-                      export EVENT_HUB_FQDN="$(EVENT_HUB_FQDN)"
-                      export EVENT_HUB_NAME="$(EVENT_HUB_NAME)"
-                      export STORAGE_BLOB_URL="$(STORAGE_BLOB_URL)"
+                  - task: AzureCLI@2
+                    displayName: Apply manifests with envsubst
+                    inputs:
+                      azureSubscription: guardianlink-azure
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        set -euo pipefail
+                        export ACR_LOGIN_SERVER="$(ACR_LOGIN_SERVER)"
+                        export IMAGE_TAG="$(IMAGE_TAG)"
+                        export CONSUMER_IDENTITY_CLIENT_ID="$(CONSUMER_IDENTITY_CLIENT_ID)"
+                        export AZURE_TENANT_ID="$(AZURE_TENANT_ID)"
+                        export KV_NAME="$(KV_NAME)"
+                        export EVENT_HUB_FQDN="$(EVENT_HUB_FQDN)"
+                        export EVENT_HUB_NAME="$(EVENT_HUB_NAME)"
+                        export STORAGE_BLOB_URL="$(STORAGE_BLOB_URL)"
 
-                      for f in \
-                        k8s/consumer/namespace.yaml \
-                        k8s/consumer/serviceaccount.yaml \
-                        k8s/consumer/secretproviderclass.yaml \
-                        k8s/consumer/deployment.yaml \
-                        k8s/consumer/hpa.yaml \
-                        k8s/consumer/networkpolicy.yaml; do
-                        envsubst < "$f" | kubectl apply -f -
-                      done
+                        for f in \
+                          k8s/consumer/namespace.yaml \
+                          k8s/consumer/serviceaccount.yaml \
+                          k8s/consumer/secretproviderclass.yaml \
+                          k8s/consumer/deployment.yaml \
+                          k8s/consumer/hpa.yaml \
+                          k8s/consumer/networkpolicy.yaml; do
+                          envsubst < "$f" | kubectl apply -f -
+                        done
 
-                - task: Bash@3
-                  displayName: Wait for rollout
-                  inputs:
-                    targetType: inline
-                    script: |
-                      kubectl rollout status deployment/consumer -n consumer --timeout=5m
+                  - task: Bash@3
+                    displayName: Wait for rollout
+                    inputs:
+                      targetType: inline
+                      script: |
+                        kubectl rollout status deployment/consumer -n consumer --timeout=5m
+
+  - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+    - stage: deploy_prod
+      displayName: Deploy to Prod AKS
+      dependsOn: build_scan
+      condition: succeeded()
+      variables:
+        - group: guardianlink-infra-outputs-prod
+        - group: guardianlink-prod
+        - name: IMAGE_TAG
+          value: $[ stageDependencies.build_scan.build_scan.outputs['set_tag.IMAGE_TAG'] ]
+      jobs:
+        - deployment: deploy_prod
+          displayName: kubectl apply consumer manifests (prod)
+          environment: prod
+          pool:
+            vmImage: ubuntu-latest
+          strategy:
+            runOnce:
+              deploy:
+                steps:
+                  - checkout: self
+
+                  - task: AzureCLI@2
+                    displayName: Get AKS credentials
+                    inputs:
+                      azureSubscription: guardianlink-azure
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        az aks get-credentials \
+                          --name "$(AKS_CLUSTER_NAME)" \
+                          --resource-group "$(RESOURCE_GROUP_NAME)" \
+                          --overwrite-existing
+
+                  - task: Bash@3
+                    displayName: Install kubectl
+                    inputs:
+                      targetType: inline
+                      script: |
+                        curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                        chmod +x kubectl
+                        sudo mv kubectl /usr/local/bin/kubectl
+
+                  - task: AzureCLI@2
+                    displayName: Apply manifests with envsubst
+                    inputs:
+                      azureSubscription: guardianlink-azure
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        set -euo pipefail
+                        export ACR_LOGIN_SERVER="$(ACR_LOGIN_SERVER)"
+                        export IMAGE_TAG="$(IMAGE_TAG)"
+                        export CONSUMER_IDENTITY_CLIENT_ID="$(CONSUMER_IDENTITY_CLIENT_ID)"
+                        export AZURE_TENANT_ID="$(AZURE_TENANT_ID)"
+                        export KV_NAME="$(KV_NAME)"
+                        export EVENT_HUB_FQDN="$(EVENT_HUB_FQDN)"
+                        export EVENT_HUB_NAME="$(EVENT_HUB_NAME)"
+                        export STORAGE_BLOB_URL="$(STORAGE_BLOB_URL)"
+
+                        for f in \
+                          k8s/consumer/namespace.yaml \
+                          k8s/consumer/serviceaccount.yaml \
+                          k8s/consumer/secretproviderclass.yaml \
+                          k8s/consumer/deployment.yaml \
+                          k8s/consumer/hpa.yaml \
+                          k8s/consumer/networkpolicy.yaml; do
+                          envsubst < "$f" | kubectl apply -f -
+                        done
+
+                  - task: Bash@3
+                    displayName: Wait for rollout
+                    inputs:
+                      targetType: inline
+                      script: |
+                        kubectl rollout status deployment/consumer -n consumer --timeout=5m

@@ -2,14 +2,12 @@
 trigger:
   branches:
     include:
+      - dev
       - main
   paths:
     include:
       - apps/ml-stub/**
       - pipelines/ml-stub.yml
-
-variables:
-  - group: guardianlink-infra-outputs
 
 stages:
   - stage: build_test
@@ -29,103 +27,178 @@ stages:
               pytest tests/ -v
             displayName: Run tests
 
-  - stage: build_push_dev
-    displayName: Build, Push & Deploy to Dev
-    dependsOn: build_test
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-    jobs:
-      - deployment: deploy
-        displayName: Build image, push to ACR, update Container App
-        environment: dev
-        pool:
-          vmImage: ubuntu-latest
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - checkout: self
+  - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/dev') }}:
+    - stage: build_push_dev
+      displayName: Build, Push & Deploy to Dev
+      dependsOn: build_test
+      condition: succeeded()
+      variables:
+        - group: guardianlink-infra-outputs
+      jobs:
+        - deployment: deploy
+          displayName: Build image, push to ACR, update Container App
+          environment: dev
+          pool:
+            vmImage: ubuntu-latest
+          strategy:
+            runOnce:
+              deploy:
+                steps:
+                  - checkout: self
 
-                - script: |
-                    SHORT_SHA="${BUILD_SOURCEVERSION:0:8}"
-                    echo "##vso[task.setvariable variable=DEPLOY_VERSION]${BUILD_BUILDNUMBER}-${SHORT_SHA}"
-                  displayName: Set deploy version string
-                  env:
-                    BUILD_SOURCEVERSION: $(Build.SourceVersion)
-                    BUILD_BUILDNUMBER: $(Build.BuildNumber)
+                  - script: |
+                      SHORT_SHA="${BUILD_SOURCEVERSION:0:8}"
+                      echo "##vso[task.setvariable variable=DEPLOY_VERSION]${BUILD_BUILDNUMBER}-${SHORT_SHA}"
+                    displayName: Set deploy version string
+                    env:
+                      BUILD_SOURCEVERSION: $(Build.SourceVersion)
+                      BUILD_BUILDNUMBER: $(Build.BuildNumber)
 
-                - task: AzureCLI@2
-                  displayName: Build and push image to ACR
-                  inputs:
-                    azureSubscription: guardianlink-azure
-                    scriptType: bash
-                    scriptLocation: inlineScript
-                    inlineScript: |
-                      az acr build \
-                        --registry "$(ACR_NAME)" \
-                        --image "ml-stub:$(DEPLOY_VERSION)" \
-                        --image "ml-stub:latest" \
-                        apps/ml-stub/
+                  - task: AzureCLI@2
+                    displayName: Build and push image to ACR
+                    inputs:
+                      azureSubscription: guardianlink-azure
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        az acr build \
+                          --registry "$(ACR_NAME)" \
+                          --image "ml-stub:$(DEPLOY_VERSION)" \
+                          --image "ml-stub:latest" \
+                          apps/ml-stub/
 
-                - task: AzureCLI@2
-                  displayName: Update Container App image
-                  inputs:
-                    azureSubscription: guardianlink-azure
-                    scriptType: bash
-                    scriptLocation: inlineScript
-                    inlineScript: |
-                      az containerapp update \
-                        --name "$(CONTAINER_APP_ML_STUB_NAME)" \
-                        --resource-group "$(RESOURCE_GROUP_NAME)" \
-                        --container-name ml-stub \
-                        --image "$(ACR_LOGIN_SERVER)/ml-stub:$(DEPLOY_VERSION)"
+                  - task: AzureCLI@2
+                    displayName: Update Container App image
+                    inputs:
+                      azureSubscription: guardianlink-azure
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        az containerapp update \
+                          --name "$(CONTAINER_APP_ML_STUB_NAME)" \
+                          --resource-group "$(RESOURCE_GROUP_NAME)" \
+                          --container-name ml-stub \
+                          --image "$(ACR_LOGIN_SERVER)/ml-stub:$(DEPLOY_VERSION)"
 
-                - task: AzureCLI@2
-                  displayName: Tag Container App resource
-                  inputs:
-                    azureSubscription: guardianlink-azure
-                    scriptType: bash
-                    scriptLocation: inlineScript
-                    inlineScript: |
-                      RESOURCE_ID=$(az containerapp show \
-                        --name "$(CONTAINER_APP_ML_STUB_NAME)" \
-                        --resource-group "$(RESOURCE_GROUP_NAME)" \
-                        --query id -o tsv)
-                      az tag update \
-                        --resource-id "$RESOURCE_ID" \
-                        --operation merge \
-                        --tags "deploy-version=$(DEPLOY_VERSION)"
+                  - task: AzureCLI@2
+                    displayName: Tag Container App resource
+                    inputs:
+                      azureSubscription: guardianlink-azure
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        RESOURCE_ID=$(az containerapp show \
+                          --name "$(CONTAINER_APP_ML_STUB_NAME)" \
+                          --resource-group "$(RESOURCE_GROUP_NAME)" \
+                          --query id -o tsv)
+                        az tag update \
+                          --resource-id "$RESOURCE_ID" \
+                          --operation merge \
+                          --tags "deploy-version=$(DEPLOY_VERSION)"
 
-                - task: AzureCLI@2
-                  displayName: Create App Insights release annotation
-                  inputs:
-                    azureSubscription: guardianlink-azure
-                    scriptType: bash
-                    scriptLocation: inlineScript
-                    inlineScript: |
-                      APP_RES_ID=$(az monitor app-insights component show \
-                        --app "$(APP_INSIGHTS_NAME)" \
-                        --resource-group "$(RESOURCE_GROUP_NAME)" \
-                        --query id -o tsv)
-                      ANNO_ID=$(uuidgen)
-                      ANNO_TIME=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
-                      az rest \
-                        --method post \
-                        --uri "https://management.azure.com${APP_RES_ID}/Annotations?api-version=2015-05-01" \
-                        --body "{\"Id\":\"${ANNO_ID}\",\"AnnotationName\":\"deploy-ml-stub\",\"EventTime\":\"${ANNO_TIME}\",\"Category\":\"Deployment\",\"Properties\":\"{\\\"ReleaseVersion\\\":\\\"$(DEPLOY_VERSION)\\\"}\"}" \
-                        || echo "Annotation skipped (workspace-based App Insights does not support this API)."
+                  - task: AzureCLI@2
+                    displayName: Create App Insights release annotation
+                    inputs:
+                      azureSubscription: guardianlink-azure
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        APP_RES_ID=$(az monitor app-insights component show \
+                          --app "$(APP_INSIGHTS_NAME)" \
+                          --resource-group "$(RESOURCE_GROUP_NAME)" \
+                          --query id -o tsv)
+                        ANNO_ID=$(uuidgen)
+                        ANNO_TIME=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
+                        az rest \
+                          --method post \
+                          --uri "https://management.azure.com${APP_RES_ID}/Annotations?api-version=2015-05-01" \
+                          --body "{\"Id\":\"${ANNO_ID}\",\"AnnotationName\":\"deploy-ml-stub\",\"EventTime\":\"${ANNO_TIME}\",\"Category\":\"Deployment\",\"Properties\":\"{\\\"ReleaseVersion\\\":\\\"$(DEPLOY_VERSION)\\\"}\"}" \
+                          || echo "Annotation skipped (workspace-based App Insights does not support this API)."
 
-  - stage: deploy_prod
-    displayName: Deploy to Prod (stub)
-    dependsOn: build_push_dev
-    condition: succeeded()
-    jobs:
-      - deployment: deploy_prod
-        environment: prod
-        pool:
-          vmImage: ubuntu-latest
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - script: echo "Prod workspace not yet configured."
-                  displayName: Prod stub
+  - ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/main') }}:
+    - stage: build_push_prod
+      displayName: Build, Push & Deploy to Prod
+      dependsOn: build_test
+      condition: succeeded()
+      variables:
+        - group: guardianlink-infra-outputs-prod
+      jobs:
+        - deployment: deploy_prod
+          displayName: Build image, push to ACR, update Container App (prod)
+          environment: prod
+          pool:
+            vmImage: ubuntu-latest
+          strategy:
+            runOnce:
+              deploy:
+                steps:
+                  - checkout: self
+
+                  - script: |
+                      SHORT_SHA="${BUILD_SOURCEVERSION:0:8}"
+                      echo "##vso[task.setvariable variable=DEPLOY_VERSION]${BUILD_BUILDNUMBER}-${SHORT_SHA}"
+                    displayName: Set deploy version string
+                    env:
+                      BUILD_SOURCEVERSION: $(Build.SourceVersion)
+                      BUILD_BUILDNUMBER: $(Build.BuildNumber)
+
+                  - task: AzureCLI@2
+                    displayName: Build and push image to ACR
+                    inputs:
+                      azureSubscription: guardianlink-azure
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        az acr build \
+                          --registry "$(ACR_NAME)" \
+                          --image "ml-stub:$(DEPLOY_VERSION)" \
+                          --image "ml-stub:latest" \
+                          apps/ml-stub/
+
+                  - task: AzureCLI@2
+                    displayName: Update Container App image
+                    inputs:
+                      azureSubscription: guardianlink-azure
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        az containerapp update \
+                          --name "$(CONTAINER_APP_ML_STUB_NAME)" \
+                          --resource-group "$(RESOURCE_GROUP_NAME)" \
+                          --container-name ml-stub \
+                          --image "$(ACR_LOGIN_SERVER)/ml-stub:$(DEPLOY_VERSION)"
+
+                  - task: AzureCLI@2
+                    displayName: Tag Container App resource
+                    inputs:
+                      azureSubscription: guardianlink-azure
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        RESOURCE_ID=$(az containerapp show \
+                          --name "$(CONTAINER_APP_ML_STUB_NAME)" \
+                          --resource-group "$(RESOURCE_GROUP_NAME)" \
+                          --query id -o tsv)
+                        az tag update \
+                          --resource-id "$RESOURCE_ID" \
+                          --operation merge \
+                          --tags "deploy-version=$(DEPLOY_VERSION)"
+
+                  - task: AzureCLI@2
+                    displayName: Create App Insights release annotation
+                    inputs:
+                      azureSubscription: guardianlink-azure
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        APP_RES_ID=$(az monitor app-insights component show \
+                          --app "$(APP_INSIGHTS_NAME)" \
+                          --resource-group "$(RESOURCE_GROUP_NAME)" \
+                          --query id -o tsv)
+                        ANNO_ID=$(uuidgen)
+                        ANNO_TIME=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
+                        az rest \
+                          --method post \
+                          --uri "https://management.azure.com${APP_RES_ID}/Annotations?api-version=2015-05-01" \
+                          --body "{\"Id\":\"${ANNO_ID}\",\"AnnotationName\":\"deploy-ml-stub\",\"EventTime\":\"${ANNO_TIME}\",\"Category\":\"Deployment\",\"Properties\":\"{\\\"ReleaseVersion\\\":\\\"$(DEPLOY_VERSION)\\\"}\"}" \
+                          || echo "Annotation skipped (workspace-based App Insights does not support this API)."

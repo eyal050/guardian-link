@@ -1,6 +1,20 @@
-# IoT Hub: device ingestion, identity-based routing to Event Hubs.
-# See docs/architecture.md — decision on IoT Hub vs raw Event Hubs.
-
+# IoT Hub terminates device connections (MQTT/AMQP over TLS) and routes
+# every device-to-cloud message to the telemetry Event Hub via its own
+# system-assigned managed identity.
+#
+# F1 (Free) SKU: feature-complete (twin, C2D, X.509, routing, MI) but
+# capped at 8000 msgs/day and exactly one instance per Azure subscription.
+# Plenty for simulator-scale dev; interview talking point for prod sizing.
+#
+# local_authentication_enabled = true: SAS device tokens remain accepted
+# so the future simulator can connect with a device connection string.
+# X.509-only hardening is deferred to the simulator slice when a device
+# CA / cert story is in scope.
+#
+# event_hub_partition_count applies to the built-in 'events' endpoint.
+# Since the route below sends everything to the external telemetry hub,
+# the built-in endpoint only receives unmatched-fallback traffic. Set
+# to the F1 minimum.
 resource "azurerm_iothub" "main" {
   provider = azurerm.workload
 
@@ -24,6 +38,9 @@ resource "azurerm_iothub" "main" {
   tags = var.tags
 }
 
+# IoT Hub's system identity needs Send permission on the telemetry hub
+# so the identity-based route below can publish messages without SAS.
+# Scoped to the hub (not the namespace) for least privilege.
 resource "azurerm_role_assignment" "iot_to_eh_sender" {
   provider = azurerm.workload
 
@@ -32,6 +49,10 @@ resource "azurerm_role_assignment" "iot_to_eh_sender" {
   principal_id         = azurerm_iothub.main.identity[0].principal_id
 }
 
+# Identity-based routing endpoint pointing at the telemetry hub.
+# 'identityBased' + no explicit identity_id means IoT Hub authenticates
+# with its own system-assigned identity. Requires Data Sender role on
+# the target hub to already exist at create time - hence depends_on.
 resource "azurerm_iothub_endpoint_eventhub" "telemetry" {
   provider = azurerm.workload
 
@@ -46,6 +67,14 @@ resource "azurerm_iothub_endpoint_eventhub" "telemetry" {
   depends_on = [azurerm_role_assignment.iot_to_eh_sender]
 }
 
+# Route every device-to-cloud message to the telemetry endpoint.
+# source=DeviceMessages + condition=true matches all D2C traffic;
+# crash-suspect discrimination happens downstream at the classifier,
+# not at ingest (docs/architecture.md decision #7).
+#
+# No explicit fallback_route: Azure's implicit fallback (to the
+# built-in 'events' endpoint) stays enabled. With condition=true
+# matching everything first, the fallback is moot in practice.
 resource "azurerm_iothub_route" "all_to_telemetry" {
   provider = azurerm.workload
 
@@ -59,6 +88,15 @@ resource "azurerm_iothub_route" "all_to_telemetry" {
   enabled        = true
 }
 
+# Send IoT Hub logs + metrics to the shared Log Analytics workspace.
+# Categories selected for what this slice actually exercises:
+# - Connections             : device connect/disconnect + auth outcomes
+# - DeviceTelemetry         : D2C message flow into the hub
+# - Routes                  : route delivery attempts + failures.
+#                             Critical for this slice - any breakage in
+#                             the MI-based endpoint surfaces here.
+# - DeviceIdentityOperations: registry changes (useful when devices arrive)
+# Kafka / twin / jobs / direct methods categories omitted - not used yet.
 resource "azurerm_monitor_diagnostic_setting" "iothub" {
   provider = azurerm.workload
 
@@ -66,9 +104,23 @@ resource "azurerm_monitor_diagnostic_setting" "iothub" {
   target_resource_id         = azurerm_iothub.main.id
   log_analytics_workspace_id = var.log_analytics_workspace_id
 
-  enabled_log { category = "Connections" }
-  enabled_log { category = "DeviceTelemetry" }
-  enabled_log { category = "Routes" }
-  enabled_log { category = "DeviceIdentityOperations" }
-  metric { category = "AllMetrics"; enabled = true }
+  enabled_log {
+    category = "Connections"
+  }
+
+  enabled_log {
+    category = "DeviceTelemetry"
+  }
+
+  enabled_log {
+    category = "Routes"
+  }
+
+  enabled_log {
+    category = "DeviceIdentityOperations"
+  }
+
+  enabled_metric {
+    category = "AllMetrics"
+  }
 }

@@ -9,9 +9,9 @@ module "aks" {
   resource_group_name        = azurerm_resource_group.main.name
   location                   = var.primary_location
   dns_prefix                 = "${var.application_name}-${var.environment_name}"
-  key_vault_id               = azurerm_key_vault.main.id
-  acr_id                     = azurerm_container_registry.main.id
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  key_vault_id               = module.keyvault.id
+  acr_id                     = module.ml_stub.acr_id
+  log_analytics_workspace_id = module.observability.workspace_id
   tags                       = local.tags
 }
 
@@ -20,7 +20,7 @@ module "aks" {
 resource "azurerm_role_assignment" "consumer_eh_receiver" {
   provider = azurerm.workload
 
-  scope                = azurerm_eventhub_namespace.main.id
+  scope                = module.eventhubs.namespace_id
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.aks.consumer_identity_principal_id
 }
@@ -30,7 +30,7 @@ resource "azurerm_role_assignment" "consumer_eh_receiver" {
 resource "azurerm_role_assignment" "consumer_storage_contributor" {
   provider = azurerm.workload
 
-  scope                = azurerm_storage_account.main.id
+  scope                = module.storage.main_id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = module.aks.consumer_identity_principal_id
 }

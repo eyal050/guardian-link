@@ -144,8 +144,15 @@ stages:
                         -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
                         -backend-config="key=${{ parameters.stateKey }}" \
                         -input=false
-                      terraform apply -auto-approve -input=false \
-                        -target=azurerm_container_registry.main
+                      # Detect layout from config (not state) so a fresh/destroyed env
+                      # still picks the right address. Dev's modules.tf declares
+                      # `module "ml_stub"`; prod still has the resource at root.
+                      ACR_ADDR="azurerm_container_registry.main"
+                      if grep -ql 'module "ml_stub"' *.tf 2>/dev/null; then
+                        ACR_ADDR="module.ml_stub.azurerm_container_registry.main"
+                      fi
+                      echo "Pre-creating $ACR_ADDR..."
+                      terraform apply -auto-approve -input=false -target="$ACR_ADDR"
                   env:
                     TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)
                     TF_VAR_alert_email: $(TF_VAR_alert_email)
@@ -176,6 +183,13 @@ stages:
                         -backend-config="key=${{ parameters.stateKey }}" \
                         -input=false -reconfigure
 
+                      # Pick the module prefix from config (not state) so a fresh
+                      # or post-destroy env still picks the right addresses.
+                      MOD_PREFIX=""
+                      if grep -ql 'module "ml_stub"' *.tf 2>/dev/null; then
+                        MOD_PREFIX="module.ml_stub."
+                      fi
+
                       ACR_NAME=$(terraform output -raw acr_name)
                       # ACR lives in the workload subscription; the service connection
                       # defaults to a different sub, so set context before az acr calls.
@@ -190,23 +204,25 @@ stages:
                       # Container App Environment may exist in Azure but not in state
                       # if a previous apply errored during the slow CAE polling phase.
                       CAE_ID="/subscriptions/$(TF_VAR_workload_subscription_id)/resourceGroups/rg-guardianlink-${{ parameters.environment }}/providers/Microsoft.App/managedEnvironments/cae-guardianlink-${{ parameters.environment }}-weu"
-                      if ! terraform state show azurerm_container_app_environment.main > /dev/null 2>&1; then
+                      CAE_ADDR="${MOD_PREFIX}azurerm_container_app_environment.main"
+                      if ! terraform state show "$CAE_ADDR" > /dev/null 2>&1; then
                         if az containerapp env show --ids "$CAE_ID" &>/dev/null; then
-                          echo "Importing azurerm_container_app_environment.main..."
-                          terraform import azurerm_container_app_environment.main "$CAE_ID"
+                          echo "Importing $CAE_ADDR..."
+                          terraform import "$CAE_ADDR" "$CAE_ID"
                         fi
                       else
-                        echo "azurerm_container_app_environment.main already in state."
+                        echo "$CAE_ADDR already in state."
                       fi
 
                       CA_ID="/subscriptions/$(TF_VAR_workload_subscription_id)/resourceGroups/rg-guardianlink-${{ parameters.environment }}/providers/Microsoft.App/containerApps/ca-guardianlink-${{ parameters.environment }}-weu-ml-stub"
-                      if ! terraform state show azurerm_container_app.ml_stub > /dev/null 2>&1; then
+                      CA_ADDR="${MOD_PREFIX}azurerm_container_app.ml_stub"
+                      if ! terraform state show "$CA_ADDR" > /dev/null 2>&1; then
                         if az containerapp show --ids "$CA_ID" &>/dev/null; then
-                          echo "Importing azurerm_container_app.ml_stub..."
-                          terraform import azurerm_container_app.ml_stub "$CA_ID"
+                          echo "Importing $CA_ADDR..."
+                          terraform import "$CA_ADDR" "$CA_ID"
                         fi
                       else
-                        echo "azurerm_container_app.ml_stub already in state."
+                        echo "$CA_ADDR already in state."
                       fi
                   env:
                     TF_VAR_billing_scope_id: $(TF_VAR_billing_scope_id)

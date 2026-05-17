@@ -1,11 +1,11 @@
 variable "name_prefix" {
   type        = string
-  description = "Shared name prefix for all resources, e.g. guardianlink-dev-weu."
+  description = "Shared name prefix, e.g. guardianlink-dev-weu."
 }
 
 variable "location" {
   type        = string
-  description = "Azure region for all resources."
+  description = "Azure region."
 }
 
 variable "resource_group_name" {
