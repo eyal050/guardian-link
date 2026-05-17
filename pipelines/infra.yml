@@ -199,6 +199,7 @@ stages:
         variableGroup: guardianlink-prod
         adoEnvironment: prod
         stateKey: guardianlink-prod
+        outputsVariableGroup: guardianlink-infra-outputs-prod
 
     - stage: post_apply_prod
       displayName: Post-apply Prod

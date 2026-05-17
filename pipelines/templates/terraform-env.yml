@@ -16,6 +16,9 @@ parameters:
     type: string
   - name: stateKey
     type: string
+  - name: outputsVariableGroup
+    type: string
+    default: guardianlink-infra-outputs
   - name: dependsOn
     type: object
     default: []
@@ -61,7 +64,7 @@ stages:
     variables:
       - group: guardianlink-backend
       - group: ${{ parameters.variableGroup }}
-      - group: guardianlink-infra-outputs
+      - group: ${{ parameters.outputsVariableGroup }}
     jobs:
       - job: plan
         displayName: terraform plan
@@ -107,7 +110,7 @@ stages:
     variables:
       - group: guardianlink-backend
       - group: ${{ parameters.variableGroup }}
-      - group: guardianlink-infra-outputs
+      - group: ${{ parameters.outputsVariableGroup }}
     jobs:
       - deployment: apply
         displayName: terraform apply
