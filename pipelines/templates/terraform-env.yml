@@ -144,10 +144,11 @@ stages:
                         -backend-config="container_name=$(TF_BACKEND_CONTAINER)" \
                         -backend-config="key=${{ parameters.stateKey }}" \
                         -input=false
-                      # Detect layout: dev is modulized (module.ml_stub.*), prod still has
-                      # ml-stub at root. Pick the right -target so this works for both.
+                      # Detect layout from config (not state) so a fresh/destroyed env
+                      # still picks the right address. Dev's modules.tf declares
+                      # `module "ml_stub"`; prod still has the resource at root.
                       ACR_ADDR="azurerm_container_registry.main"
-                      if terraform state list 2>/dev/null | grep -q "^module\.ml_stub\."; then
+                      if grep -ql 'module "ml_stub"' *.tf 2>/dev/null; then
                         ACR_ADDR="module.ml_stub.azurerm_container_registry.main"
                       fi
                       echo "Pre-creating $ACR_ADDR..."
@@ -182,9 +183,10 @@ stages:
                         -backend-config="key=${{ parameters.stateKey }}" \
                         -input=false -reconfigure
 
-                      # Pick the module prefix that matches the env's layout.
+                      # Pick the module prefix from config (not state) so a fresh
+                      # or post-destroy env still picks the right addresses.
                       MOD_PREFIX=""
-                      if terraform state list 2>/dev/null | grep -q "^module\.ml_stub\."; then
+                      if grep -ql 'module "ml_stub"' *.tf 2>/dev/null; then
                         MOD_PREFIX="module.ml_stub."
                       fi
 
