@@ -10,51 +10,9 @@ Built end-to-end with Terraform, Azure DevOps, and full observability. Every res
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    Device["BLE device / phone"] -->|MQTT over TLS| IoTHub["Azure IoT Hub\n(device identity, D2C routing)"]
+![GuardianLink — Azure Reference Architecture](docs/architecture/guardianlink-architecture.png)
 
-    IoTHub -->|telemetry route| EH["Event Hubs\n4 partitions, RBAC-only"]
-    IoTHub -->|lifecycle events| EG["Event Grid\n(device paired, blob-created)"]
-
-    EH --> TW["Telemetry Writer\n(Function App)"]
-    EH --> CC["Crash Classifier\n(Function App)"]
-    EH --> MF["Metrics Function\n(Function App)"]
-
-    TW -->|upsert| Cosmos["Cosmos DB\nserverless, /device_id key"]
-    TW -->|NDJSON archive| Blob["Blob Storage\nhive-partitioned by time"]
-
-    CC -->|fetch telemetry window| Cosmos
-    CC -->|call| ML["ML stub\n(Container App)\nreturns confidence score"]
-    ML -->|≥ 90% confidence| SB["Service Bus\ncrash-confirmed queue\nat-least-once + DLQ"]
-
-    SB --> Notifier["Notifier\n(Function App)\nidempotent, channel cursor"]
-    Notifier --> SMS["ACS SMS"]
-    Notifier --> Email["ACS Email"]
-    Notifier --> Push["Push stub"]
-
-    Notifier -->|idempotency record| Cosmos
-
-    MF --> AI["App Insights\n+ Log Analytics"]
-    TW --> AI
-    CC --> AI
-    Notifier --> AI
-
-    subgraph Identity ["Trust boundary — Managed Identity everywhere"]
-        KV["Key Vault\nRBAC model, no access policies"]
-    end
-
-    TW -.->|secrets| KV
-    CC -.->|secrets| KV
-    Notifier -.->|secrets| KV
-
-    subgraph API ["API layer"]
-        APIM["API Management"] --> UserAPI["user-api\n(Function / Container App)"]
-        UserAPI --> PG["PostgreSQL Flexible\nusers, contacts, consent"]
-    end
-```
-
-See [`docs/architecture.md`](docs/architecture.md) for full component detail and all recorded design decisions.
+> Vector source: [`docs/architecture/guardianlink-architecture.svg`](docs/architecture/guardianlink-architecture.svg) · Component detail and recorded design decisions: [`docs/architecture.md`](docs/architecture.md)
 
 ---
 

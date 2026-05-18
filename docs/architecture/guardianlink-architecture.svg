@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1100" font-family="'Segoe UI', 'Trebuchet MS', Verdana, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrow-pink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c026d3"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ea580c"/>
+    </marker>
+    <marker id="arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0d9488"/>
+    </marker>
+    <marker id="arrow-cyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0891b2"/>
+    </marker>
+    <marker id="arrow-yellow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ca8a04"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1600" height="1100" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="800" y="42" text-anchor="middle" font-size="26" font-weight="700" fill="#0f172a">GuardianLink — Azure Reference Architecture</text>
+  <text x="800" y="68" text-anchor="middle" font-size="14" fill="#64748b">Crash detection pipeline: ingestion → eventing → processing → notification</text>
+
+  <!-- ============ COLUMN 1: DEVICES + INGESTION ============ -->
+  <!-- Device -->
+  <rect x="30" y="120" width="200" height="80" rx="10" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+  <text x="130" y="148" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">BLE device / mobile</text>
+  <text x="130" y="168" text-anchor="middle" font-size="11" fill="#334155">Guardian device</text>
+  <text x="130" y="184" text-anchor="middle" font-size="11" fill="#334155">or phone app</text>
+
+  <!-- Mobile (user) -->
+  <rect x="30" y="900" width="200" height="80" rx="10" fill="#cffafe" stroke="#0891b2" stroke-width="2"/>
+  <text x="130" y="928" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">Mobile app user</text>
+  <text x="130" y="948" text-anchor="middle" font-size="11" fill="#334155">API client</text>
+  <text x="130" y="964" text-anchor="middle" font-size="11" fill="#334155">(profile, contacts)</text>
+
+  <!-- Ingestion subgraph -->
+  <rect x="270" y="100" width="220" height="160" rx="12" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="380" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="#475569">INGESTION</text>
+  <rect x="290" y="130" width="180" height="110" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="380" y="156" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Azure IoT Hub</text>
+  <text x="380" y="174" text-anchor="middle" font-size="10" fill="#334155">guardianlink-iothub</text>
+  <text x="380" y="192" text-anchor="middle" font-size="10" fill="#475569">MQTT / HTTPS</text>
+  <text x="380" y="208" text-anchor="middle" font-size="10" fill="#475569">device identity</text>
+  <text x="380" y="224" text-anchor="middle" font-size="10" fill="#475569">routing</text>
+
+  <!-- API layer (bottom of col 1-2) -->
+  <rect x="270" y="860" width="380" height="170" rx="12" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="460" y="852" text-anchor="middle" font-size="13" font-weight="700" fill="#475569">API LAYER</text>
+
+  <rect x="290" y="890" width="160" height="120" rx="10" fill="#cffafe" stroke="#0891b2" stroke-width="2"/>
+  <text x="370" y="916" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Azure APIM</text>
+  <text x="370" y="934" text-anchor="middle" font-size="10" fill="#334155">guardianlink-apim</text>
+  <text x="370" y="954" text-anchor="middle" font-size="10" fill="#475569">JWT validation</text>
+  <text x="370" y="970" text-anchor="middle" font-size="10" fill="#475569">rate limits</text>
+  <text x="370" y="986" text-anchor="middle" font-size="10" fill="#475569">public edge</text>
+
+  <rect x="470" y="890" width="160" height="120" rx="10" fill="#cffafe" stroke="#0891b2" stroke-width="2"/>
+  <text x="550" y="916" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">User API</text>
+  <text x="550" y="934" text-anchor="middle" font-size="10" fill="#334155">Function / Container App</text>
+  <text x="550" y="954" text-anchor="middle" font-size="10" fill="#475569">profiles, contacts</text>
+  <text x="550" y="970" text-anchor="middle" font-size="10" fill="#475569">pairing, consent</text>
+
+  <!-- ============ COLUMN 2: EVENTING ============ -->
+  <rect x="540" y="100" width="240" height="500" rx="12" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="660" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="#475569">EVENTING BACKBONE</text>
+
+  <!-- Event Hubs -->
+  <rect x="560" y="130" width="200" height="110" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="2"/>
+  <text x="660" y="156" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Azure Event Hubs</text>
+  <text x="660" y="174" text-anchor="middle" font-size="10" fill="#334155">telemetry-events</text>
+  <text x="660" y="194" text-anchor="middle" font-size="10" fill="#475569">High-volume</text>
+  <text x="660" y="210" text-anchor="middle" font-size="10" fill="#475569">telemetry stream</text>
+
+  <!-- Event Grid -->
+  <rect x="560" y="270" width="200" height="100" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+  <text x="660" y="296" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Azure Event Grid</text>
+  <text x="660" y="314" text-anchor="middle" font-size="10" fill="#334155">lifecycle-events</text>
+  <text x="660" y="334" text-anchor="middle" font-size="10" fill="#475569">device / user /</text>
+  <text x="660" y="350" text-anchor="middle" font-size="10" fill="#475569">platform events</text>
+
+  <!-- Service Bus -->
+  <rect x="560" y="400" width="200" height="110" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+  <text x="660" y="426" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Azure Service Bus</text>
+  <text x="660" y="444" text-anchor="middle" font-size="10" fill="#334155">crash-confirmed</text>
+  <text x="660" y="464" text-anchor="middle" font-size="10" fill="#475569">Durable crash</text>
+  <text x="660" y="480" text-anchor="middle" font-size="10" fill="#475569">notification path</text>
+
+  <!-- ============ COLUMN 3: PROCESSING ============ -->
+  <rect x="820" y="100" width="260" height="640" rx="12" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="950" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="#475569">PROCESSING</text>
+
+  <!-- Telemetry writer -->
+  <rect x="840" y="130" width="220" height="100" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="950" y="156" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">telemetry-writer</text>
+  <text x="950" y="174" text-anchor="middle" font-size="10" fill="#334155">Azure Function</text>
+  <text x="950" y="194" text-anchor="middle" font-size="10" fill="#475569">Consumes telemetry</text>
+  <text x="950" y="210" text-anchor="middle" font-size="10" fill="#475569">events</text>
+
+  <!-- Classifier -->
+  <rect x="840" y="260" width="220" height="120" rx="10" fill="#fae8ff" stroke="#c026d3" stroke-width="2"/>
+  <text x="950" y="286" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">crash-classifier</text>
+  <text x="950" y="304" text-anchor="middle" font-size="10" fill="#334155">Azure Function</text>
+  <text x="950" y="324" text-anchor="middle" font-size="10" fill="#475569">Consumes</text>
+  <text x="950" y="340" text-anchor="middle" font-size="10" fill="#475569">crash-suspect</text>
+  <text x="950" y="356" text-anchor="middle" font-size="10" fill="#475569">events</text>
+
+  <!-- Metrics Fn -->
+  <rect x="840" y="410" width="220" height="90" rx="10" fill="#f1f5f9" stroke="#475569" stroke-width="2"/>
+  <text x="950" y="436" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">metrics-function</text>
+  <text x="950" y="454" text-anchor="middle" font-size="10" fill="#334155">Azure Function</text>
+  <text x="950" y="474" text-anchor="middle" font-size="10" fill="#475569">Emits custom metrics</text>
+
+  <!-- Notifier -->
+  <rect x="840" y="530" width="220" height="100" rx="10" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="950" y="556" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">notifier</text>
+  <text x="950" y="574" text-anchor="middle" font-size="10" fill="#334155">Azure Function</text>
+  <text x="950" y="594" text-anchor="middle" font-size="10" fill="#475569">Consumes confirmed</text>
+  <text x="950" y="610" text-anchor="middle" font-size="10" fill="#475569">crash messages</text>
+
+  <!-- ML endpoint -->
+  <rect x="840" y="660" width="220" height="70" rx="10" fill="#f3e8ff" stroke="#9333ea" stroke-width="2"/>
+  <text x="950" y="685" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">ml-endpoint</text>
+  <text x="950" y="702" text-anchor="middle" font-size="10" fill="#334155">Azure Container Apps</text>
+  <text x="950" y="718" text-anchor="middle" font-size="10" fill="#475569">Crash scoring stub</text>
+
+  <!-- ============ COLUMN 4: STORAGE ============ -->
+  <rect x="1120" y="100" width="220" height="500" rx="12" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="1230" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="#475569">STORAGE</text>
+
+  <rect x="1140" y="130" width="180" height="110" rx="10" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
+  <text x="1230" y="156" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Cosmos DB</text>
+  <text x="1230" y="174" text-anchor="middle" font-size="10" fill="#334155">telemetry-hot-store</text>
+  <text x="1230" y="194" text-anchor="middle" font-size="10" fill="#475569">Recent telemetry</text>
+  <text x="1230" y="210" text-anchor="middle" font-size="10" fill="#475569">and event lookup</text>
+
+  <rect x="1140" y="270" width="180" height="110" rx="10" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
+  <text x="1230" y="296" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Blob Storage</text>
+  <text x="1230" y="314" text-anchor="middle" font-size="10" fill="#334155">raw-telemetry-archive</text>
+  <text x="1230" y="334" text-anchor="middle" font-size="10" fill="#475569">Raw telemetry,</text>
+  <text x="1230" y="350" text-anchor="middle" font-size="10" fill="#475569">evidence, ML data</text>
+
+  <rect x="1140" y="410" width="180" height="110" rx="10" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
+  <text x="1230" y="436" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">PostgreSQL</text>
+  <text x="1230" y="454" text-anchor="middle" font-size="10" fill="#334155">user-data-db</text>
+  <text x="1230" y="474" text-anchor="middle" font-size="10" fill="#475569">Users, contacts,</text>
+  <text x="1230" y="490" text-anchor="middle" font-size="10" fill="#475569">devices, consent</text>
+
+  <!-- ============ COLUMN 5: NOTIFICATIONS ============ -->
+  <rect x="1380" y="100" width="200" height="500" rx="12" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="1480" y="92" text-anchor="middle" font-size="13" font-weight="700" fill="#475569">NOTIFICATIONS</text>
+
+  <rect x="1395" y="130" width="170" height="100" rx="10" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="1480" y="158" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Azure Comm.</text>
+  <text x="1480" y="174" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Services</text>
+  <text x="1480" y="200" text-anchor="middle" font-size="11" fill="#475569">SMS</text>
+
+  <rect x="1395" y="260" width="170" height="100" rx="10" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="1480" y="296" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">SendGrid</text>
+  <text x="1480" y="328" text-anchor="middle" font-size="11" fill="#475569">Email</text>
+
+  <rect x="1395" y="390" width="170" height="100" rx="10" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
+  <text x="1480" y="418" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Notification</text>
+  <text x="1480" y="434" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Hubs</text>
+  <text x="1480" y="460" text-anchor="middle" font-size="11" fill="#475569">Push</text>
+
+  <!-- ============ OBSERVABILITY (bottom band) ============ -->
+  <rect x="690" y="780" width="890" height="250" rx="12" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="1135" y="772" text-anchor="middle" font-size="13" font-weight="700" fill="#475569">OBSERVABILITY &amp; OPERATIONS</text>
+
+  <rect x="710" y="810" width="190" height="100" rx="10" fill="#f1f5f9" stroke="#475569" stroke-width="2"/>
+  <text x="805" y="838" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">App Insights</text>
+  <text x="805" y="856" text-anchor="middle" font-size="10" fill="#334155">guardianlink-appi</text>
+  <text x="805" y="876" text-anchor="middle" font-size="10" fill="#475569">Traces, deps,</text>
+  <text x="805" y="892" text-anchor="middle" font-size="10" fill="#475569">custom events</text>
+
+  <rect x="920" y="810" width="190" height="100" rx="10" fill="#f1f5f9" stroke="#475569" stroke-width="2"/>
+  <text x="1015" y="838" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Log Analytics</text>
+  <text x="1015" y="856" text-anchor="middle" font-size="10" fill="#334155">guardianlink-law</text>
+  <text x="1015" y="876" text-anchor="middle" font-size="10" fill="#475569">Central log</text>
+  <text x="1015" y="892" text-anchor="middle" font-size="10" fill="#475569">workspace</text>
+
+  <rect x="1130" y="810" width="190" height="100" rx="10" fill="#f1f5f9" stroke="#475569" stroke-width="2"/>
+  <text x="1225" y="838" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Workbooks / Alerts</text>
+  <text x="1225" y="858" text-anchor="middle" font-size="10" fill="#475569">Ingestion, latency,</text>
+  <text x="1225" y="874" text-anchor="middle" font-size="10" fill="#475569">failure rate, cost</text>
+
+  <rect x="1340" y="810" width="220" height="100" rx="10" fill="#fef9c3" stroke="#ca8a04" stroke-width="2"/>
+  <text x="1450" y="838" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">Azure Key Vault</text>
+  <text x="1450" y="856" text-anchor="middle" font-size="10" fill="#334155">guardianlink-kv</text>
+  <text x="1450" y="876" text-anchor="middle" font-size="10" fill="#475569">Secrets, keys,</text>
+  <text x="1450" y="892" text-anchor="middle" font-size="10" fill="#475569">provider credentials</text>
+
+  <!-- Observability dashed pipe from processing to App Insights -->
+  <text x="755" y="952" font-size="10" fill="#64748b">Functions emit telemetry → App Insights → Log Analytics → Dashboards</text>
+  <text x="755" y="970" font-size="10" fill="#64748b">All compute uses managed identity to read secrets from Key Vault (dashed)</text>
+
+  <!-- ============ EDGES ============ -->
+
+  <!-- Device -> IoT Hub -->
+  <path d="M 230 160 L 290 160" stroke="#0284c7" stroke-width="2.5" fill="none" marker-end="url(#arrow-blue)"/>
+  <text x="260" y="152" text-anchor="middle" font-size="10" fill="#0284c7" font-weight="600">telemetry</text>
+
+  <!-- IoT Hub -> Event Hubs -->
+  <path d="M 470 175 L 560 175" stroke="#7c3aed" stroke-width="2.5" fill="none" marker-end="url(#arrow-purple)"/>
+  <text x="515" y="168" text-anchor="middle" font-size="10" fill="#7c3aed" font-weight="600">all telemetry</text>
+
+  <!-- IoT Hub -> Event Grid (down + right) -->
+  <path d="M 470 215 L 510 215 L 510 310 L 560 310" stroke="#d97706" stroke-width="2.5" fill="none" marker-end="url(#arrow-orange)"/>
+  <text x="540" y="260" text-anchor="middle" font-size="10" fill="#d97706" font-weight="600">lifecycle</text>
+
+  <!-- Event Hubs -> telemetry-writer -->
+  <path d="M 760 165 L 840 165" stroke="#16a34a" stroke-width="2.5" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Event Hubs -> classifier -->
+  <path d="M 760 195 L 800 195 L 800 300 L 840 300" stroke="#16a34a" stroke-width="2.5" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Event Hubs -> metrics-function -->
+  <path d="M 760 220 L 790 220 L 790 440 L 840 440" stroke="#16a34a" stroke-width="2.5" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Event Grid -> metrics-function -->
+  <path d="M 760 330 L 815 330 L 815 460 L 840 460" stroke="#d97706" stroke-width="2.5" fill="none" marker-end="url(#arrow-orange)"/>
+
+  <!-- telemetry-writer -> Cosmos -->
+  <path d="M 1060 160 L 1140 160" stroke="#0d9488" stroke-width="2.5" fill="none" marker-end="url(#arrow-teal)"/>
+  <text x="1100" y="153" text-anchor="middle" font-size="10" fill="#0d9488" font-weight="600">hot writes</text>
+
+  <!-- telemetry-writer -> Blob -->
+  <path d="M 1060 200 L 1100 200 L 1100 295 L 1140 295" stroke="#0d9488" stroke-width="2.5" fill="none" marker-end="url(#arrow-teal)"/>
+  <text x="1115" y="252" text-anchor="middle" font-size="10" fill="#0d9488" font-weight="600">archive</text>
+
+  <!-- classifier -> Cosmos (read) -->
+  <path d="M 1060 285 L 1095 285 L 1095 195 L 1140 195" stroke="#c026d3" stroke-width="2" fill="none" marker-end="url(#arrow-pink)" stroke-dasharray="6 3"/>
+  <text x="1085" y="240" text-anchor="middle" font-size="10" fill="#c026d3" font-weight="600">read window</text>
+
+  <!-- classifier -> ml-endpoint -->
+  <path d="M 950 380 L 950 660" stroke="#c026d3" stroke-width="2.5" fill="none" marker-end="url(#arrow-pink)"/>
+  <text x="990" y="425" font-size="10" fill="#c026d3" font-weight="600">score</text>
+
+  <!-- ml-endpoint -> classifier (return) -->
+  <path d="M 985 660 L 985 380" stroke="#9333ea" stroke-width="2" fill="none" marker-end="url(#arrow-pink)" stroke-dasharray="5 3"/>
+  <text x="1000" y="640" font-size="10" fill="#9333ea" font-weight="600">is_crash +</text>
+  <text x="1000" y="654" font-size="10" fill="#9333ea" font-weight="600">confidence</text>
+
+  <!-- classifier -> Service Bus (crash_confirmed) -->
+  <path d="M 840 340 L 800 340 L 800 440 L 760 440" stroke="#dc2626" stroke-width="2.5" fill="none" marker-end="url(#arrow-red)"/>
+  <text x="785" y="395" text-anchor="middle" font-size="10" fill="#dc2626" font-weight="600">crash_confirmed</text>
+
+  <!-- Service Bus -> notifier -->
+  <path d="M 760 470 L 800 470 L 800 565 L 840 565" stroke="#dc2626" stroke-width="2.5" fill="none" marker-end="url(#arrow-red)"/>
+  <text x="810" y="525" font-size="10" fill="#dc2626" font-weight="600">SB trigger</text>
+
+  <!-- notifier -> Postgres (lookup contacts) -->
+  <path d="M 1060 560 L 1100 560 L 1100 465 L 1140 465" stroke="#0d9488" stroke-width="2" fill="none" marker-end="url(#arrow-teal)" stroke-dasharray="6 3"/>
+  <text x="1090" y="520" text-anchor="middle" font-size="10" fill="#0d9488" font-weight="600">lookup</text>
+
+  <!-- notifier -> Cosmos (notification status) - route below storage then up -->
+  <path d="M 1090 630 L 1090 755 L 1345 755 L 1345 225 L 1320 225" stroke="#0d9488" stroke-width="1.8" fill="none" marker-end="url(#arrow-teal)" stroke-dasharray="4 3"/>
+  <text x="1200" y="748" font-size="10" fill="#0d9488" font-weight="600">notif status</text>
+
+  <!-- notifier -> ACS / SendGrid / Push (clean routes around storage column) -->
+  <path d="M 1060 545 L 1370 545 L 1370 180 L 1395 180" stroke="#ea580c" stroke-width="2.5" fill="none" marker-end="url(#arrow-orange)"/>
+  <text x="1378" y="365" font-size="10" fill="#ea580c" font-weight="600" transform="rotate(-90 1378 365)">SMS</text>
+
+  <path d="M 1060 575 L 1378 575 L 1378 310 L 1395 310" stroke="#ea580c" stroke-width="2.5" fill="none" marker-end="url(#arrow-orange)"/>
+  <text x="1386" y="450" font-size="10" fill="#ea580c" font-weight="600" transform="rotate(-90 1386 450)">Email</text>
+
+  <path d="M 1060 605 L 1386 605 L 1386 440 L 1395 440" stroke="#ea580c" stroke-width="2.5" fill="none" marker-end="url(#arrow-orange)"/>
+  <text x="1370" y="530" font-size="10" fill="#ea580c" font-weight="600" transform="rotate(-90 1370 530)">Push</text>
+
+  <!-- Mobile -> APIM -> UserAPI -->
+  <path d="M 230 940 L 290 940" stroke="#0891b2" stroke-width="2.5" fill="none" marker-end="url(#arrow-cyan)"/>
+  <path d="M 450 950 L 470 950" stroke="#0891b2" stroke-width="2.5" fill="none" marker-end="url(#arrow-cyan)"/>
+
+  <!-- UserAPI -> Postgres (route along bottom then up) -->
+  <path d="M 550 890 L 550 770 L 1230 770 L 1230 520" stroke="#0891b2" stroke-width="2" fill="none" marker-end="url(#arrow-cyan)"/>
+  <text x="900" y="763" font-size="10" fill="#0891b2" font-weight="600">read/write user data</text>
+
+  <!-- UserAPI -> Cosmos (route along bottom then up, slightly offset) -->
+  <path d="M 530 890 L 530 760 L 1260 760 L 1260 240" stroke="#0891b2" stroke-width="2" fill="none" marker-end="url(#arrow-cyan)" stroke-dasharray="4 3"/>
+
+  <!-- Legend -->
+  <g transform="translate(40, 1010)">
+    <rect x="0" y="0" width="600" height="70" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+    <text x="10" y="20" font-size="11" font-weight="700" fill="#0f172a">FLOW LEGEND</text>
+    <line x1="10" y1="35" x2="40" y2="35" stroke="#0284c7" stroke-width="3"/>
+    <text x="46" y="39" font-size="11" fill="#334155">ingest</text>
+    <line x1="90" y1="35" x2="120" y2="35" stroke="#7c3aed" stroke-width="3"/>
+    <text x="126" y="39" font-size="11" fill="#334155">events</text>
+    <line x1="175" y1="35" x2="205" y2="35" stroke="#16a34a" stroke-width="3"/>
+    <text x="211" y="39" font-size="11" fill="#334155">processing</text>
+    <line x1="280" y1="35" x2="310" y2="35" stroke="#dc2626" stroke-width="3"/>
+    <text x="316" y="39" font-size="11" fill="#334155">crash path</text>
+    <line x1="385" y1="35" x2="415" y2="35" stroke="#ea580c" stroke-width="3"/>
+    <text x="421" y="39" font-size="11" fill="#334155">notifications</text>
+    <line x1="510" y1="35" x2="540" y2="35" stroke="#0d9488" stroke-width="3"/>
+    <text x="546" y="39" font-size="11" fill="#334155">storage</text>
+    <line x1="10" y1="58" x2="40" y2="58" stroke="#0891b2" stroke-width="3"/>
+    <text x="46" y="62" font-size="11" fill="#334155">API</text>
+    <line x1="90" y1="58" x2="120" y2="58" stroke="#c026d3" stroke-width="3"/>
+    <text x="126" y="62" font-size="11" fill="#334155">classifier</text>
+    <line x1="195" y1="58" x2="225" y2="58" stroke="#475569" stroke-width="2" stroke-dasharray="5 3"/>
+    <text x="231" y="62" font-size="11" fill="#334155">read / dashed = async</text>
+  </g>
+</svg>
