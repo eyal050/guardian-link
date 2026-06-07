@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: producer
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/eyal050/guardian-link.git
+    targetRevision: feature/aks-gitops
+    path: k8s/charts/producer
+    helm:
+      valueFiles:
+        - values-dev.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: producer
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

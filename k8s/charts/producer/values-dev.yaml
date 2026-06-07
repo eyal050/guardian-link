@@ -7,7 +7,7 @@ replicaCount: 1
 
 image:
   repository: "acrguardianlinkdevweu.azurecr.io/producer"
-  tag: "0.1.1"
+  tag: "0.1.2"
 
 workloadIdentity:
   clientId: "fc83af09-88fa-4bd6-a337-204f41848839"
