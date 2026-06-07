@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "consumer.fullname" . }}
+  labels:
+    {{- include "consumer.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "consumer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "consumer.selectorLabels" . | nindent 8 }}
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: {{ include "consumer.serviceAccountName" . }}
+      containers:
+        - name: consumer
+          image: "{{ required "image.repository is required" .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: EVENT_HUB_FQDN
+              value: {{ .Values.eventHub.fqdn | quote }}
+            - name: EVENT_HUB_NAME
+              value: {{ .Values.eventHub.name | quote }}
+            - name: CONSUMER_GROUP
+              value: {{ .Values.eventHub.consumerGroup | quote }}
+            - name: STORAGE_BLOB_ACCOUNT_URL
+              value: {{ .Values.storage.blobAccountUrl | quote }}
+            - name: CHECKPOINT_CONTAINER
+              value: {{ .Values.storage.checkpointContainer | quote }}
+            - name: STARTING_POSITION
+              value: {{ .Values.startingPosition | quote }}
+            - name: {{ .Values.keyVault.envVar }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "consumer.secretName" . }}
+                  key: {{ .Values.keyVault.envVar }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets-store
+              readOnly: true
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ include "consumer.secretName" . }}

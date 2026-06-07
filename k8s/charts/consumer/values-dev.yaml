@@ -1,0 +1,30 @@
+# Dev environment overrides.
+#
+# Values below are wired from the dev Terraform stack outputs
+# (terraform/environments/dev, applied 2026-06-07). Refresh with:
+#   terraform output -raw acr_login_server            -> image.repository (+ /consumer)
+#   terraform output -raw consumer_identity_client_id -> workloadIdentity.clientId
+#   terraform output -raw storage_blob_url            -> storage.blobAccountUrl
+#   terraform output -raw eventhub_fqdn               -> eventHub.fqdn
+#   terraform output -raw key_vault_name              -> keyVault.name
+
+replicaCount: 1
+
+image:
+  repository: "acrguardianlinkdevweu.azurecr.io/consumer"
+  tag: "0.1.0"
+
+workloadIdentity:
+  clientId: "d9406fcc-608b-4b78-8c17-fd1a9bc6164f"
+
+eventHub:
+  fqdn: "evhns-guardianlink-dev-weu.servicebus.windows.net"
+  name: "telemetry"
+  consumerGroup: "inspector"
+
+storage:
+  blobAccountUrl: "https://stgldevidvj0p.blob.core.windows.net/"
+
+keyVault:
+  name: "kv-guardianlink-dev-weu"
+  tenantId: "00d6fdc3-235a-4c4f-9dcf-a5542bb07ab9"

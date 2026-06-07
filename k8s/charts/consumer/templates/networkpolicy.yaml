@@ -1,0 +1,29 @@
+{{- if .Values.networkPolicy.enabled -}}
+# Blocks all ingress. Restricts egress to HTTPS / AMQP / DNS.
+# For hostname-based egress (*.servicebus.windows.net etc.) use a Calico
+# GlobalNetworkPolicy with FQDN matching or a dedicated egress proxy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "consumer.fullname" . }}-network-policy
+  labels:
+    {{- include "consumer.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "consumer.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 5671
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- end }}

@@ -1,0 +1,12 @@
+apiVersion: v2
+name: consumer
+description: >-
+  GuardianLink Event Hub inspector (the "consumer"). A long-running AKS
+  workload that reads the telemetry hub via Workload Identity and pulls its
+  one static secret (App Insights connection string) from Key Vault via the
+  Secrets Store CSI driver.
+type: application
+# Chart version — bump on any chart change.
+version: 0.1.0
+# Application version — tracks the container image tag.
+appVersion: "0.1.0"

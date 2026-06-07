@@ -1,0 +1,71 @@
+# Default values for the consumer chart. Environment-specific values
+# (image repo, identity client id, Azure endpoints) are layered on top via
+# values-<env>.yaml — these defaults are the env-agnostic skeleton.
+
+replicaCount: 1
+
+image:
+  # repository: full ACR path, e.g. acrguardianlinkdevweu.azurecr.io/consumer
+  repository: ""
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+# Allow overriding the generated resource names.
+nameOverride: ""
+fullnameOverride: "consumer"
+
+# Workload Identity: client id of the consumer user-assigned identity.
+# Terraform output: consumer_identity_client_id
+workloadIdentity:
+  clientId: ""
+
+serviceAccount:
+  create: true
+  # Defaults to "<fullname>-sa" when empty.
+  name: "consumer-sa"
+
+# Azure data-plane dependencies. Auth is via Workload Identity
+# (DefaultAzureCredential picks up the projected token), so these are
+# plain endpoints — no secrets.
+eventHub:
+  fqdn: ""            # <namespace>.servicebus.windows.net
+  name: "telemetry"
+  consumerGroup: "inspector"
+
+storage:
+  blobAccountUrl: ""  # https://<account>.blob.core.windows.net/
+  checkpointContainer: "eh-checkpoints"
+
+startingPosition: "@latest"
+
+# Key Vault CSI: the App Insights connection string is the one genuinely
+# static secret. It is mounted by the CSI driver and synced into a k8s Secret
+# that the container reads as an env var.
+keyVault:
+  name: ""            # kv-guardianlink-dev-weu
+  tenantId: ""        # AAD tenant id
+  secretName: "appi-connection-string"        # object name in Key Vault
+  envVar: "APPLICATIONINSIGHTS_CONNECTION_STRING"  # alias + env var name
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 70
+
+# Blocks all ingress, restricts egress to HTTPS / AMQP / DNS.
+networkPolicy:
+  enabled: true
+
+# Let `helm --create-namespace` or ArgoCD CreateNamespace=true own the
+# namespace; keep it out of the chart to avoid circular ownership.
+namespace:
+  create: false
