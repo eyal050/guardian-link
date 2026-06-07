@@ -1,0 +1,57 @@
+# Default values for the producer (device simulator fleet) chart.
+
+replicaCount: 1
+
+image:
+  repository: ""        # <acr>/producer
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: "producer"
+
+# Workload Identity: client id of the producer user-assigned identity.
+# Terraform output: producer_identity_client_id
+workloadIdentity:
+  clientId: ""
+
+serviceAccount:
+  create: true
+  name: "producer-sa"
+
+iotHub:
+  hostname: ""          # iot-<...>.azure-devices.net
+
+# App Insights connection string via Key Vault CSI (same pattern as consumer).
+keyVault:
+  name: ""
+  tenantId: ""
+  secretName: "appi-connection-string"
+  envVar: "APPLICATIONINSIGHTS_CONNECTION_STRING"
+
+# Where the roster ConfigMap is mounted / read from.
+rosterPath: "/etc/guardianlink/devices.json"
+
+# ---- The fleet. THIS is the tinker knob. -----------------------------------
+# Add entries for more producers. Lower crash_period_s => more "accidents"
+# from that device. Editing this list re-renders the ConfigMap, whose checksum
+# rolls the pod (so ArgoCD sync = fleet change).
+producers:
+  - id: sim-01
+    telemetry_period_s: 20
+    crash_period_s: 120
+  - id: sim-02
+    telemetry_period_s: 27
+    crash_period_s: 95
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "128Mi"
+  limits:
+    cpu: "250m"
+    memory: "256Mi"
+
+# Blocks all ingress, restricts egress to HTTPS / AMQP / MQTT / DNS.
+networkPolicy:
+  enabled: true

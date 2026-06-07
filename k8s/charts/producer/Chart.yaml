@@ -1,0 +1,11 @@
+apiVersion: v2
+name: producer
+description: >-
+  GuardianLink device simulator fleet. A single long-running AKS workload that
+  self-registers its device roster in IoT Hub via Workload Identity, then emits
+  telemetry + crash-suspect events for every device. The roster (and each
+  device's accident cadence) is declared in values and rendered to a ConfigMap,
+  so the fleet is tuned by editing config and letting GitOps roll it.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

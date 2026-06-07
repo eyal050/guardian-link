@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "producer.fullname" . }}
+  labels:
+    {{- include "producer.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "producer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "producer.selectorLabels" . | nindent 8 }}
+        azure.workload.identity/use: "true"
+      annotations:
+        # Roll the pod whenever the roster changes (GitOps edit -> restart).
+        checksum/roster: {{ .Values.producers | toJson | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "producer.serviceAccountName" . }}
+      containers:
+        - name: producer
+          image: "{{ required "image.repository is required" .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: IOTHUB_HOSTNAME
+              value: {{ required "iotHub.hostname is required" .Values.iotHub.hostname | quote }}
+            - name: ROSTER_PATH
+              value: {{ .Values.rosterPath | quote }}
+            - name: {{ .Values.keyVault.envVar }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "producer.secretName" . }}
+                  key: {{ .Values.keyVault.envVar }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: roster
+              mountPath: {{ dir .Values.rosterPath | quote }}
+              readOnly: true
+            - name: secrets-store
+              mountPath: /mnt/secrets-store
+              readOnly: true
+      volumes:
+        - name: roster
+          configMap:
+            name: {{ include "producer.rosterConfigMap" . }}
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ include "producer.secretName" . }}

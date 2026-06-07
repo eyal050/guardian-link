@@ -85,3 +85,36 @@ resource "azurerm_role_assignment" "consumer_kv_secrets_user" {
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_user_assigned_identity.consumer.principal_id
 }
+
+# --- Producer (device simulator) workload identity ---------------------------
+# The producer pod self-registers its device roster in IoT Hub at startup using
+# this identity (control-plane), then connects as each device with the returned
+# SAS key. No manual bootstrap, no .env files. The IoT Hub Registry Contributor
+# grant lives in the environment (it needs the IoT Hub scope).
+resource "azurerm_user_assigned_identity" "producer" {
+  provider = azurerm.workload
+
+  name                = "${var.name}-producer-wi"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  tags                = var.tags
+}
+
+resource "azurerm_federated_identity_credential" "producer" {
+  provider = azurerm.workload
+
+  name                      = "${var.name}-producer-fedcred"
+  user_assigned_identity_id = azurerm_user_assigned_identity.producer.id
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject                   = "system:serviceaccount:${var.producer_k8s_namespace}:${var.producer_k8s_service_account}"
+}
+
+# CSI driver uses the producer identity to fetch the App Insights secret.
+resource "azurerm_role_assignment" "producer_kv_secrets_user" {
+  provider = azurerm.workload
+
+  scope                = var.key_vault_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.producer.principal_id
+}

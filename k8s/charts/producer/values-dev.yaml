@@ -1,0 +1,29 @@
+# Dev environment overrides. Dynamic values from the dev Terraform stack.
+#   terraform output -raw producer_identity_client_id -> workloadIdentity.clientId
+#   image.repository = <acr_login_server>/producer
+#   iotHub.hostname  = <iothub_name>.azure-devices.net
+
+replicaCount: 1
+
+image:
+  repository: "acrguardianlinkdevweu.azurecr.io/producer"
+  tag: "0.1.1"
+
+workloadIdentity:
+  clientId: "fc83af09-88fa-4bd6-a337-204f41848839"
+
+iotHub:
+  hostname: "iot-guardianlink-dev-weu.azure-devices.net"
+
+keyVault:
+  name: "kv-guardianlink-dev-weu"
+  tenantId: "00d6fdc3-235a-4c4f-9dcf-a5542bb07ab9"
+
+# Dev fleet. Tweak freely to exercise the pipeline.
+producers:
+  - id: sim-01
+    telemetry_period_s: 20
+    crash_period_s: 120
+  - id: sim-02
+    telemetry_period_s: 27
+    crash_period_s: 95

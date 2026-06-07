@@ -23,6 +23,16 @@ output "consumer_identity_principal_id" {
   description = "Principal ID used for RBAC assignments outside the module."
 }
 
+output "producer_identity_client_id" {
+  value       = azurerm_user_assigned_identity.producer.client_id
+  description = "Client ID annotated on the producer Kubernetes service account."
+}
+
+output "producer_identity_principal_id" {
+  value       = azurerm_user_assigned_identity.producer.principal_id
+  description = "Principal ID used for the IoT Hub Registry Contributor assignment."
+}
+
 output "kube_config_raw" {
   value       = azurerm_kubernetes_cluster.main.kube_config_raw
   sensitive   = true

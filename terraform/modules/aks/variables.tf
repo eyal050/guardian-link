@@ -63,6 +63,18 @@ variable "consumer_k8s_service_account" {
   description = "Kubernetes service account name for Workload Identity binding."
 }
 
+variable "producer_k8s_namespace" {
+  type        = string
+  default     = "producer"
+  description = "Kubernetes namespace where the producer (device simulator) service account lives."
+}
+
+variable "producer_k8s_service_account" {
+  type        = string
+  default     = "producer-sa"
+  description = "Kubernetes service account name for the producer Workload Identity binding."
+}
+
 variable "private_cluster" {
   type        = bool
   default     = false

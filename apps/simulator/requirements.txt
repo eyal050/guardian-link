@@ -3,5 +3,9 @@ azure-iot-hub>=2.6
 azure-monitor-opentelemetry>=1.6
 python-dotenv>=1.0
 
+# Workload Identity for the in-cluster fleet runner (fleet.py registers
+# devices via DefaultAzureCredential). Unused by the local .env workflow.
+azure-identity>=1.15
+
 # Undeclared transitive dep of azure-iot-hub (imports six.moves.urllib).
 six>=1.16

@@ -34,3 +34,14 @@ resource "azurerm_role_assignment" "consumer_storage_contributor" {
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = module.aks.consumer_identity_principal_id
 }
+
+# IoT Hub Registry Contributor: the producer pod registers its device roster
+# and reads back each device's SAS key at startup (control-plane). Device
+# telemetry itself still flows over per-device SAS auth, not this identity.
+resource "azurerm_role_assignment" "producer_iothub_registry" {
+  provider = azurerm.workload
+
+  scope                = module.iot.iothub_id
+  role_definition_name = "IoT Hub Registry Contributor"
+  principal_id         = module.aks.producer_identity_principal_id
+}

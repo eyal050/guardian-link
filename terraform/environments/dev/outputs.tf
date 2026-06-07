@@ -64,6 +64,11 @@ output "consumer_identity_client_id" {
   description = "Client ID annotated on the consumer Kubernetes service account."
 }
 
+output "producer_identity_client_id" {
+  value       = module.aks.producer_identity_client_id
+  description = "Client ID annotated on the producer Kubernetes service account."
+}
+
 output "storage_blob_url" {
   value       = module.storage.main_primary_blob_endpoint
   description = "Primary blob endpoint for the consumer checkpoint store."

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "producer.rosterConfigMap" . }}
+  labels:
+    {{- include "producer.labels" . | nindent 4 }}
+data:
+  # Rendered from .Values.producers — the fleet roster fleet.py reads at start.
+  devices.json: {{ required "producers list must not be empty" .Values.producers | toJson | quote }}
